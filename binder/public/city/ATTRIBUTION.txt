@@ -1,0 +1,42 @@
+Afterhours - adapted Tokyo building geometry
+
+Source: Project PLATEAU / Ministry of Land, Infrastructure, Transport and
+Tourism, Japan. "3D City Model Minato-ku (2025)".
+https://www.geospatial.jp/ckan/dataset/plateau-13103-minato-ku-2025
+https://www.mlit.go.jp/plateau/
+
+Original open 3D city data is copyrighted by the relevant local government,
+as described in the PLATEAU site policy.
+https://www.mlit.go.jp/plateau/site-policy/
+
+License: Creative Commons Attribution 4.0 International.
+https://creativecommons.org/licenses/by/4.0/
+Section 3 of the PLATEAU site policy permits use under CC BY 4.0 as an
+alternative compatible with Public Data License 1.0.
+
+This is an independent adaptation, not an official MLIT visualization.
+Changes made by Afterhours:
+- Selected a bounded subset of the Minato 2025 LOD3 tileset. Individual
+  buildings retain their actual source level: LOD1, LOD2 or LOD3.
+- Converted ECEF coordinates to a scaled local frame, flattened building
+  foundations to the authored ground, and omitted volumes that interfere
+  with the original park, animated streets or Tokyo Tower composition.
+- Repositioned and proportionally fitted 27 selected source buildings to
+  the existing foreground composition; these are not their GIS locations.
+- Welded and quantized geometry, compressed local buffers, resized and
+  repacked texture atlases, and derived approximate glass masks.
+- Rebuilt close-range cladding, glazing, window interiors, frames and
+  rooftop equipment. These details and all night illumination are
+  authored approximations, not surveyed appearance or live occupancy.
+- Seven foreground buildings now use independently modeled,
+  reference-inspired silhouettes instead of the selected survey meshes.
+  Their unused source data remains in the package for reproducibility.
+- Additional near-district infill buildings, parking/service courts and
+  their contents are authored additions, not part of the survey data.
+
+manifest.json records the exact source URL and SHA-256 of every imported
+tile. No city panorama or skyline photograph is used as a backdrop.
+
+The separate tower, temple, roads, traffic, shop signs, plants and room
+remain authored geometry. CC0 surface-map sources are credited in
+../room/ATTRIBUTION.txt. This credit does not imply source endorsement.
