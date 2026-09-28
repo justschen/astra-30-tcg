@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "models": [
+    {
+      "id": "potted_plant_01",
+      "file": "potted_plant_01.glb.gz",
+      "source": "https://polyhaven.com/a/potted_plant_01",
+      "license": "CC0-1.0",
+      "triangles": 119348,
+      "bytes": 2989944,
+      "sha256": "fc2d1c8f2e2a0d03ed8931002f87e891b4caf1bf69c1e72a12eb868c2efb7b08",
+      "sourceMD5": "199e9e3d68f5447142db4066d60ae3f0"
+    },
+    {
+      "id": "potted_plant_02",
+      "file": "potted_plant_02.glb.gz",
+      "source": "https://polyhaven.com/a/potted_plant_02",
+      "license": "CC0-1.0",
+      "triangles": 15876,
+      "bytes": 1064508,
+      "sha256": "6b83a70f0acdb4dd33af51aaa9535ae30444a2b6af7bcb424c39a08b3fed35af",
+      "sourceMD5": "9999d7e6c51018a85551840e1bdae656"
+    }
+  ]
+}
