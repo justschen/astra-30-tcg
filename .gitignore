@@ -1,0 +1,10 @@
+node_modules/
+tools/.cache/
+shots/
+.DS_Store
+dist/
+.env
+.env.*
+!.env.example
+*.pem
+*.key

@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#151c23">
+  <meta name="description" content="A little room for your collection. An interactive 9-pocket binder in a Tokyo apartment after dark.">
+  <title>Afterhours | Your collector's room</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%23151c23'/%3E%3Crect x='18' y='12' width='29' height='40' rx='5' fill='none' stroke='%23d4bd8d' stroke-width='3' transform='rotate(12 32 32)'/%3E%3Crect x='14' y='12' width='29' height='40' rx='5' fill='%23151c23' stroke='%23d4bd8d' stroke-width='3'/%3E%3C/svg%3E">
+  <link rel="preload" href="fonts/manrope-regular.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <main id="app">
+    <div id="stage" aria-label="Interactive Tokyo apartment and card binder">
+      <canvas id="room-canvas" aria-label="3D collector's room. Use the pocket buttons or Pocket view for keyboard access."></canvas>
+      <div id="pocket-hotspots" role="group" aria-label="Pockets on this spread"></div>
+      <div id="pile-labels"></div>
+      <div id="tv-surface" class="tv-surface">
+        <div id="tv-player"></div>
+        <div id="tv-cover" class="tv-cover"><p class="micro-label">AFTERHOURS TV</p><h2>A little background company.</h2><p id="tv-status" role="status">Play the requested video on YouTube. Starts muted.</p><button class="primary-button" id="tv-play">Play TV<span data-icon="play"></span></button><button class="text-button" id="tv-retry" hidden>Reconnect</button><a href="https://www.youtube.com/watch?v=kuctuTR_cEM" target="_blank" rel="noopener noreferrer">Open on YouTube</a></div>
+      </div>
+    </div>
+    <div class="scene-scrim" aria-hidden="true"></div>
+    <header class="topbar idle-ui">
+      <div class="brand-controls">
+        <a class="wordmark" href="./" aria-label="Afterhours home"><span class="brand-mark" data-icon="cards"></span><span>afterhours<span class="wordmark-dot">.</span></span></a>
+        <label class="time-picker" for="time-preset"><span>Time of day</span><select id="time-preset"></select></label>
+      </div>
+      <nav class="view-nav" aria-label="View">
+        <button class="nav-button is-active" id="binder-view" aria-pressed="true"><span data-icon="book"></span><span>Binder</span></button>
+        <button class="nav-button" id="held-view" aria-pressed="false"><span data-icon="hand"></span><span>Lift binder</span></button>
+        <button class="nav-button" id="room-view" aria-pressed="false"><span data-icon="room"></span><span>The room</span></button>
+        <button class="nav-button" id="city-view" aria-pressed="false"><span data-icon="eye"></span><span>Balcony</span></button>
+      </nav>
+    </header>
+    <div class="room-actions" role="group" aria-label="Room settings and visibility">
+      <div class="top-actions idle-ui">
+        <button class="icon-button" id="weather-toggle" aria-label="Weather: Rain. Switch to fog." title="Weather: Rain"><span data-icon="rain"></span></button>
+        <button class="icon-button" id="lighting-toggle" aria-label="Switch to warm room lighting" title="Room lighting"><span data-icon="moon"></span></button>
+        <button class="icon-button" id="sound-toggle" aria-label="Turn ambient sound on" aria-pressed="false" title="Ambient sound"><span data-icon="mute"></span></button>
+        <button class="icon-button" id="help-open" aria-label="Settings and collection information" title="Settings and controls"><span data-icon="settings"></span></button>
+      </div>
+      <button class="icon-button hud-eye" id="hud-toggle" aria-pressed="false" aria-label="Hide HUD" title="Hide HUD (H)"><span data-icon="eye"></span></button>
+    </div>
+    <section class="collection-summary idle-ui" aria-labelledby="collection-title">
+      <p class="room-caption">A LITTLE ROOM FOR YOUR COLLECTION</p>
+      <h1 id="collection-title">30th Celebration<span class="title-period">.</span></h1>
+      <p class="collection-subtitle">Pok&eacute;mon. Thirty years of collecting.</p>
+      <div class="collection-progress"><span id="collection-count">14</span><span>/ <span id="variant-total">251</span> in your binder</span><span class="progress-rule"><span id="progress-fill"></span></span></div>
+    </section>
+    <div class="room-coordinate idle-ui" aria-hidden="true"><span class="night-mark"></span>TOKYO / 17:45</div>
+    <div id="storage-warning" class="storage-warning" role="alert" hidden><span id="storage-message"></span><button id="storage-retry" class="text-button">Enable saving</button><button id="storage-load-latest" class="text-button" hidden>Load latest saved</button><button id="storage-export" class="text-button">Export this tab</button></div>
+    <div id="city-load-warning" class="city-load-warning" role="status" hidden><span id="city-load-message"></span><button class="text-button" id="city-retry">Reload city</button></div>
+    <div id="scene-loading" class="scene-loading" role="status"><div class="loading-pocket"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div><span id="scene-loading-label">Setting the table...</span><div class="loading-actions"><button class="secondary-button" id="loading-bag">Browse cards while the room loads</button><button class="text-button" id="loading-pocket">Use Pocket view now</button></div></div>
+    <div id="scene-error" class="scene-error" role="alert" hidden><h2>The 3D room couldn't open.</h2><p id="scene-error-message"></p><button class="primary-button" id="fallback-open">Use Pocket view</button></div>
+    <div class="binder-caption" id="binder-caption"><span>ANNIVERSARY EDITION</span><span>20 sheets. 360 little possibilities.</span></div>
+    <aside class="hand-tray" id="hand-tray" aria-label="Cards in hand" hidden>
+      <div class="hand-tools"><button id="hand-admire" class="hand-clear" title="Turn the selected card all the way around and tilt it, always upright (A)">Admire<span data-icon="eye"></span></button><button id="hand-collapse" class="hand-clear" aria-controls="hand-cards" aria-expanded="true">Fold hand</button><button id="hand-clear" class="hand-clear" title="Return every card in your hand to the bag">Return to bag<span data-icon="bag"></span></button></div>
+      <p id="hand-next" class="sr-only" aria-live="polite" aria-atomic="true"></p>
+      <ol id="hand-cards" class="hand-cards" aria-label="Select a card to place or inspect"></ol>
+    </aside>
+    <section id="admire-controls" class="admire-controls" aria-label="Admire card controls" aria-describedby="admire-help" hidden>
+      <p id="admire-name" aria-live="polite"></p><span id="admire-help">Drag left/right to turn 360&deg;, up/down to tilt. Arrow keys also work. Always upright · Esc to finish</span>
+      <p id="admire-finish" class="finish-caption" aria-live="polite"></p>
+      <div><button class="secondary-button" id="admire-left" aria-label="Turn card left"><span data-icon="left"></span></button><button class="secondary-button" id="admire-right" aria-label="Turn card right"><span data-icon="right"></span></button><button class="secondary-button" id="admire-tilt-up">Tilt up</button><button class="secondary-button" id="admire-tilt">Tilt down</button><button class="secondary-button" id="admire-flip" aria-label="Flip card to the other side">Flip</button><button class="secondary-button" id="admire-reset" aria-label="Reset card to upright front view">Reset</button><button class="primary-button" id="admire-done">Back to hand</button></div>
+    </section>
+    <div class="table-controls" aria-label="Binder controls">
+      <div class="page-control">
+        <button class="icon-button" id="previous-page" aria-label="Previous page" title="Previous page (left arrow)"><span data-icon="left"></span></button>
+        <button class="page-readout" id="page-map-open" aria-label="Choose a binder page" aria-haspopup="dialog"><span class="micro-label">OPEN PAGES · CHOOSE</span><span id="page-label" aria-live="polite">02 <span class="page-dash">/</span> 03 <span class="page-total">of 40</span></span></button>
+        <button class="icon-button" id="next-page" aria-label="Next page" title="Next page (right arrow)"><span data-icon="right"></span></button>
+      </div>
+      <span class="toolbar-divider"></span>
+      <button class="icon-button" id="undo-action" aria-label="Undo last action" title="Undo last action (Ctrl/Cmd+Z)" disabled><span data-icon="undo"></span></button>
+      <button class="icon-button" id="flat-open" aria-label="Open accessible Pocket view" title="Pocket view"><span data-icon="grid"></span></button>
+      <button class="bag-button" id="bag-open"><span data-icon="bag"></span>Your bag<span class="bag-count" id="bag-count">210</span><kbd>B</kbd></button>
+    </div>
+    <footer class="bottom-bar">
+      <p class="control-hints"><span data-icon="hand"></span><span>Drag to look</span><span class="hint-separator"></span><kbd>&larr;</kbd><kbd>&rarr;</kbd><span>Turn a page</span><span class="hint-separator"></span><span>Scroll to zoom</span></p>
+      <p class="save-status idle-ui" id="save-status"><span data-icon="check"></span>Saved on this device</p>
+    </footer>
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+    <div id="drop-hint" class="drop-hint" aria-hidden="true" hidden></div>
+    <input id="import-file" type="file" accept=".json,application/json" hidden>
+  </main>
+
+  <dialog id="bag-dialog" class="bag-dialog" aria-labelledby="bag-title">
+    <div class="dialog-heading"><div><p class="micro-label">THE COLLECTION</p><h2 id="bag-title">Your bag<span class="title-period">.</span></h2></div><button class="icon-button" data-close="bag-dialog" aria-label="Close bag"><span data-icon="close"></span></button></div>
+    <p class="dialog-subtitle" id="bag-subtitle">Every card has a place. Find its next one.</p>
+    <label class="search-field"><span class="sr-only">Search cards by name, number, or artist</span><span data-icon="search"></span><input id="card-search" type="search" autocomplete="off" placeholder="Name, number, or artist..." autofocus><kbd>/</kbd></label>
+    <div class="location-tabs" role="group" aria-label="Card location"><button data-location="all" class="is-active" aria-pressed="true">All cards</button><button data-location="bag" aria-pressed="false">In bag</button><button data-location="binder" aria-pressed="false">In binder</button><button data-location="table" aria-pressed="false">On table</button></div>
+    <label class="stack-selector" id="stack-selector" hidden>Table stack<select id="stack-filter"><option value="all">All three stacks</option><option value="unsorted">To sort</option><option value="favorites">Keepers</option><option value="trades">Trades</option></select></label>
+    <div class="filter-row">
+      <label>Collection<select id="category-filter"><option value="all">All sections</option></select></label>
+      <label>Rarity<select id="rarity-filter"><option value="all">All rarities</option></select></label>
+      <label>Sort by<select id="sort-filter"><option value="number">Set order</option><option value="name">Name A-Z</option><option value="rarity">Rarity</option></select></label>
+    </div>
+    <div class="results-line"><span id="results-count" aria-live="polite"></span><button class="text-button" id="organizer-open">Organize binder</button><button class="text-button" id="sort-stack" hidden>Sort this stack</button><button class="text-button" id="clear-filters">Clear filters</button></div>
+    <div class="card-grid" id="card-grid"></div>
+    <div class="empty-state" id="bag-empty" hidden><span data-icon="search"></span><h3>No cards found</h3><p>Try a different name or clear your filters.</p></div>
+    <footer class="bag-footer"><span data-icon="hand"></span><p>Pick up cards, then click one in your hand to select it.</p><span class="catalog-note">28 artwork reveals pending</span><button class="primary-button" id="bag-place" disabled>Pick up cards first</button></footer>
+  </dialog>
+
+  <dialog id="inspect-dialog" class="inspect-dialog" aria-labelledby="inspect-name">
+    <button class="icon-button inspector-close" data-close="inspect-dialog" aria-label="Close card inspection"><span data-icon="close"></span></button>
+    <div class="inspection-stage"><div class="inspection-card" id="inspection-card"></div><p>Move your mouse to catch the light.</p><button class="text-button flip-card-button" id="flip-inspection"><span data-icon="rotate"></span>Turn card over</button></div>
+    <section class="inspection-details">
+      <p class="micro-label">30TH CELEBRATION</p><h2 id="inspect-name"></h2><p class="card-number" id="inspect-number"></p>
+      <dl class="card-details"><div><dt>Rarity</dt><dd id="inspect-rarity"></dd></div><div><dt>Edition</dt><dd id="inspect-variant"></dd></div><div><dt>Illustrator</dt><dd id="inspect-artist"></dd></div><div><dt>Currently</dt><dd id="inspect-location"></dd></div></dl>
+      <p class="pending-notice" id="inspect-pending" hidden>This card is in the source checklist. Its artwork has not been published yet.</p>
+      <button class="primary-button" id="hold-card"><span data-icon="hand"></span>Add to hand<span data-icon="right"></span></button>
+      <button class="secondary-button" id="admire-card"><span data-icon="eye"></span>Admire card in the room</button>
+      <button class="text-button" id="inspect-show-in-binder" hidden>Show in binder</button>
+      <button class="text-button return-bag" id="inspect-remove" hidden>Remove from hand</button>
+      <button class="text-button return-bag" id="inspect-return"><span data-icon="bag"></span>Return card to bag</button>
+      <a class="art-credit" id="source-art" target="_blank" rel="noreferrer">View source artwork<span data-icon="external"></span></a>
+    </section>
+  </dialog>
+
+  <dialog id="flat-dialog" class="flat-dialog" aria-labelledby="flat-title">
+    <div class="dialog-heading"><div><p class="micro-label">YOUR BINDER</p><h2 id="flat-title">Pocket view<span class="title-period">.</span></h2></div><button class="icon-button" data-close="flat-dialog" aria-label="Close Pocket view"><span data-icon="close"></span></button></div>
+    <p class="dialog-subtitle" id="flat-instruction">Click cards to pick them up. Click an empty pocket to place the selected card.</p>
+    <div class="flat-tools"><label>Jump to pages<select id="flat-page-select"></select></label><button class="secondary-button" id="flat-organize">Organize binder</button></div>
+    <label id="flat-hand-choice" class="flat-hand-choice" hidden>Card to place<select id="flat-selected-card"></select></label>
+    <div id="flat-pages" class="flat-pages"></div>
+    <div class="flat-navigation"><button class="secondary-button" id="flat-previous"><span data-icon="left"></span>Previous</button><span id="flat-page-label"></span><button class="secondary-button" id="flat-next">Next<span data-icon="right"></span></button></div>
+    <button class="text-button" id="flat-bag"><span data-icon="bag"></span>Choose a card from your bag</button>
+  </dialog>
+
+  <dialog id="page-map-dialog" class="page-map-dialog" aria-labelledby="page-map-title">
+    <div class="dialog-heading"><h2 id="page-map-title">Your pages</h2><button class="icon-button" data-close="page-map-dialog" aria-label="Close page map"><span data-icon="close"></span></button></div>
+    <p class="dialog-subtitle">Jump to any spread. Filled squares are reserved card pockets, including cards in your hand.</p>
+    <div id="page-map-grid" class="page-map-grid"></div>
+  </dialog>
+
+  <dialog id="organizer-dialog" class="organizer-dialog" aria-labelledby="organizer-title">
+    <div class="dialog-heading"><h2 id="organizer-title">Organize your binder</h2><button class="icon-button" data-close="organizer-dialog" aria-label="Close organizer"><span data-icon="close"></span></button></div>
+    <p class="dialog-subtitle">Preview first. Earlier and protected pages are never changed. Applying a plan is one undoable action.</p>
+    <div class="organizer-fields">
+      <label>Cards to organize<select id="organizer-source"><option value="hand">Cards in my hand</option><option value="binder">Cards already in the binder</option><option value="all">Entire checklist</option></select></label>
+      <label>Order<select id="organizer-sort"><option value="hand">Current / hand order</option><option value="number">Set order</option><option value="name">Name A–Z</option><option value="rarity">Rarity / section</option></select></label>
+      <label>Start at page<select id="organizer-start"></select></label>
+    </div>
+    <details class="protected-pages"><summary>Keep selected pages untouched</summary><div id="organizer-locks"></div></details>
+    <button id="organizer-preview" class="secondary-button">Preview arrangement</button>
+    <p id="organizer-summary" role="status">No changes have been made.</p>
+    <div id="organizer-results" class="organizer-results"></div>
+    <div class="organizer-actions"><button class="secondary-button" data-close="organizer-dialog">Cancel</button><button id="organizer-apply" class="primary-button" disabled>Apply plan</button></div>
+  </dialog>
+
+  <dialog id="help-dialog" class="help-dialog" aria-labelledby="help-title">
+    <div class="dialog-heading"><div><p class="micro-label">MAKE YOURSELF AT HOME</p><h2 id="help-title">Your quiet corner<span class="title-period">.</span></h2></div><button class="icon-button" data-close="help-dialog" aria-label="Close controls"><span data-icon="close"></span></button></div>
+    <p class="dialog-subtitle">A virtual binder, a few stacks, and the city outside.</p>
+    <section class="interaction-settings" aria-labelledby="room-controls-title"><h3 id="room-controls-title">Room controls</h3><p class="setting-help">Drag right to move the scene right, or left to move it left. Drag down to look up; drag up to look down. Page turns use the arrow keys or a page-edge drag.</p><p class="setting-help">The top overlays and save status fade after 10 seconds of inactivity. Move, tap, or press a key to bring them back. Menus stay open while you use them.</p></section>
+    <section class="tv-settings"><h3>Television</h3><p class="setting-help">Watch the requested video on the right wall. YouTube is contacted only when you play it; playback starts muted.</p><div class="data-tools"><button class="secondary-button" id="tv-view">Look at the TV</button><button class="secondary-button" id="tv-power" aria-pressed="false">Play / pause TV</button></div></section>
+    <dl class="controls-list"><div><dt>Pick up cards</dt><dd>Click cards in your binder, bag, or table stacks. No dragging needed. The hand grows left and wraps; Fold hand keeps only the selected card visible.</dd></div><div><dt>Select and place</dt><dd>Click a hand card to select it, then click a highlighted pocket or stack label. Clear hand returns all held cards to the bag in one undoable action.</dd></div><div><dt>Inspect</dt><dd>Double-click or right-click a hand card, or press <kbd>E</kbd> to inspect the selected card. Bag cards also have an eye button.</dd></div><div><dt>Admire</dt><dd><kbd>A</kbd> holds up the selected card. Drag left/right to turn all the way around, up/down to tilt, or use the arrow keys and buttons. The card stays upright. Flip shows the other side; Reset restores the front. <kbd>Esc</kbd> returns to your hand.</dd></div><div><dt>Lift and turn</dt><dd>Lift binder holds the actual book upright. <kbd>&larr;</kbd> <kbd>&rarr;</kbd> and mouse page-edge turns work both in hand and on the table. Drag the room to look; scroll to zoom.</dd></div><div><dt>Your bag</dt><dd><kbd>B</kbd> opens your bag. On table includes a selector for To sort, Keepers, and Trades. Place cards returns to the current binder view.</dd></div><div><dt>Change your mind</dt><dd><kbd>Delete</kbd> puts back the selected card. <kbd>Esc</kbd> closes a menu or returns unplaced cards to their saved locations. <kbd>Ctrl / Cmd</kbd> + <kbd>Z</kbd> restores the last action and selection.</dd></div><div><dt>Keyboard collection</dt><dd>Pocket view uses standard buttons and a card selector. Tab to a card or pocket and press Enter. It also works without WebGL.</dd></div></dl>
+    <section class="atmosphere-controls" aria-labelledby="atmosphere-title">
+      <h3 id="atmosphere-title">Outside your window</h3>
+      <label class="city-night-control" for="city-time"><span>Time of day <output id="city-time-label">17:45</output></span><input id="city-time" type="range" min="0" max="24" step="0.05" value="17.75"><span class="range-labels"><span>00:00</span><span>12:00</span><span>24:00</span></span></label>
+      <div class="time-presets" role="group" aria-label="Time of day presets"></div>
+      <div class="weather-options" role="group" aria-label="Weather"><button data-weather="clear" aria-pressed="true"><span data-icon="sun"></span>Clear</button><button data-weather="rain" aria-pressed="false"><span data-icon="rain"></span>Rain</button><button data-weather="fog" aria-pressed="false"><span data-icon="fog"></span>Fog</button></div>
+      <label class="city-night-control" for="cloud-cover"><span>Cloud cover <output id="cloud-cover-label">60%</output></span><input id="cloud-cover" type="range" min="0" max="100" value="60"></label>
+      <p class="setting-help">Rain adds an overcast storm layer and thicker haze. Clear restores your chosen cloud level.</p>
+      <label class="city-night-control" for="cloud-speed"><span>Cloud speed <output id="cloud-speed-label">1.0x</output></span><input id="cloud-speed" type="range" min="0" max="300" value="100"></label>
+      <label class="city-night-control" for="traffic-density"><span>Traffic <output id="traffic-density-label">75%</output></span><input id="traffic-density" type="range" min="0" max="100" value="75" aria-describedby="traffic-help"></label>
+      <p class="setting-help" id="traffic-help">Moving traffic: up to 768 cars. Parked cars stay in their neighborhood courts.</p>
+      <div class="city-light-switches"><label><input id="city-windows" type="checkbox" checked>Window lights</label><label><input id="city-tower" type="checkbox" checked>Tower illumination</label></div>
+      <button class="secondary-button" id="city-motion-toggle" aria-pressed="true"><span data-icon="pause"></span>Pause city motion</button><p id="motion-preference">Traffic, aircraft, rooftop lights, and weather move independently.</p>
+    </section>
+    <div class="data-tools"><button class="secondary-button" id="export-layout"><span data-icon="download"></span>Export layout</button><button class="secondary-button" id="import-layout"><span data-icon="upload"></span>Import layout</button></div>
+    <section class="source-notes">
+      <h3>A note on this collection</h3><p>The starter arrangement is a virtual sample, not an ownership record. Your changes stay in this browser. Export a backup to move them to another device.</p><p id="source-summary"></p><p>The 20 double-sided sheets hold 360 cards, with nine side-loading pockets per face. First and last spreads show the inside covers.</p>
+      <div class="source-links"><a href="https://pokecottage.com/30th-celebration-master-set-guide#checklist" target="_blank" rel="noreferrer">Pokecottage checklist<span data-icon="external"></span></a><a href="https://us.vaultx.com/collections/anniversary/products/9-pocket-exo-tec-zip-binder-anniversary" target="_blank" rel="noreferrer">Vault X binder reference<span data-icon="external"></span></a></div>
+      <p class="legal-note">An independent fan-made prototype, not affiliated with Pok&eacute;mon, Nintendo, Creatures, GAME FREAK, Vault X, or Pokecottage. Card artwork belongs to its respective rights holders. The card reverse is an original Afterhours sleeve, not an official card back.</p>
+      <h3 class="room-credit-title">A city with depth</h3>
+      <p>The neighborhood combines real building meshes with original tower, temple, streets, shops and greenery. Seven distinctive skyline anchors are individually modeled from the reference composition. Tokyo Tower has a flared truss base, two observation decks and a segmented mast. Nearby facades have rebuilt cladding and window frames; distant buildings retain survey textures. Height-dependent haze adds atmospheric depth. Lighting, occupancy and reflections are simulated, not live or ray traced. The combined scene is art-directed, not an exact GIS replica.</p>
+      <p>Building data: <a href="https://www.geospatial.jp/ckan/dataset/plateau-13103-minato-ku-2025" target="_blank" rel="noreferrer">Minato-ku 2025, Project PLATEAU / MLIT</a>, adapted under <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer">CC BY 4.0</a> as permitted by the <a href="https://www.mlit.go.jp/plateau/site-policy/" target="_blank" rel="noreferrer">PLATEAU site policy</a>. Geometry is selected, compressed and rescaled; 27 foreground buildings are repositioned and retextured. <a href="city/ATTRIBUTION.txt" target="_blank" rel="noreferrer">Full attribution and modifications</a>.</p>
+      <p>Composition reference: <a href="https://commons.wikimedia.org/wiki/File:Shiba-koen,_aerial_view_on_Tokyo_Tower_at_dusk_(Unsplash).jpg" target="_blank" rel="noreferrer">Kazuend's Shiba Park photograph</a>, released under <a href="https://creativecommons.org/publicdomain/zero/1.0/" target="_blank" rel="noreferrer">CC0</a>. Wood, leather, fabric, concrete, brick, asphalt, and the detailed houseplant models are <a href="https://polyhaven.com/" target="_blank" rel="noreferrer">Poly Haven CC0 assets</a>. <a href="room/ATTRIBUTION.txt" target="_blank" rel="noreferrer">Room sources and modifications</a>. Shop signs and blossom textures are original; no skyline photograph is rendered.</p>
+    </section>
+  </dialog>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
