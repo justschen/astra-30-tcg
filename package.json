@@ -1,0 +1,40 @@
+{
+  "name": "astra-30-tcg",
+  "version": "1.0.0",
+  "description": "Afterhours: an interactive TCG binder in a living Tokyo collector room",
+  "scripts": {
+    "build": "node binder/build.mjs",
+    "test": "npm run build && npm run test:binder",
+    "dev": "node binder/build.mjs --serve",
+    "build:binder": "node binder/build.mjs",
+    "test:binder": "node --test binder/tests/*.test.mjs",
+    "test:binder:browser": "node binder/tests/browser.mjs",
+    "audit:binder:performance": "node binder/tests/performance-browser.mjs",
+    "assets:binder": "node binder/fetch-assets.mjs",
+    "assets:binder:room": "node binder/fetch-room-assets.mjs",
+    "assets:binder:plants": "node binder/fetch-plant-assets.mjs",
+    "assets:binder:city": "node binder/fetch-city-assets.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/justschen/astra-30-tcg.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "UNLICENSED",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/justschen/astra-30-tcg/issues"
+  },
+  "homepage": "https://justschen.github.io/astra-30-tcg/",
+  "devDependencies": {
+    "@phosphor-icons/core": "^2.1.1",
+    "delaunator": "^5.1.0",
+    "draco3dgltf": "^1.5.7",
+    "esbuild": "^0.28.2",
+    "playwright": "^1.63.0",
+    "sharp": "^0.35.4",
+    "three": "^0.186.1"
+  },
+  "private": true
+}
