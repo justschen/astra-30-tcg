@@ -1,0 +1,82 @@
+Afterhours room assets
+
+tokyo-night.webp
+  MODELING REFERENCE ONLY. Not loaded by the app or included in production output.
+  Original: "Shiba-koen, aerial view on Tokyo Tower at dusk" by Kazuend
+  Source: https://commons.wikimedia.org/wiki/File:Shiba-koen,_aerial_view_on_Tokyo_Tower_at_dusk_(Unsplash).jpg
+  Original image: https://upload.wikimedia.org/wikipedia/commons/4/4c/Shiba-koen%2C_aerial_view_on_Tokyo_Tower_at_dusk_%28Unsplash%29.jpg
+  License: CC0 1.0 Universal (the original Unsplash CC0 release)
+  https://creativecommons.org/publicdomain/zero/1.0/
+  Changes: cropped from the top to 16:9, resized to 5120x2880, saturation
+  increased by 8%, and converted to WebP. Used to study landmark composition
+  and proportions while creating the independent 3D reconstruction.
+  This attribution does not imply endorsement by the photographer.
+
+walnut-color.webp, walnut-normal.webp, walnut-roughness.webp
+  Poly Haven: Wood Table 001
+  https://polyhaven.com/a/wood_table_001
+  License: CC0 1.0 Universal
+  https://creativecommons.org/publicdomain/zero/1.0/
+  Changes: converted the 2K diffuse, OpenGL normal, and roughness maps to WebP.
+
+oak-color.webp, oak-normal.webp, oak-roughness.webp
+  Poly Haven: Oak Veneer 02
+  https://polyhaven.com/a/oak_veneer_02
+  License: CC0 1.0 Universal
+  Changes: converted the 2K diffuse, OpenGL normal and roughness maps to WebP.
+  Used with restrained material tints for the table, floor planks and joinery.
+
+plants/potted_plant_01.glb.gz, plants/potted_plant_02.glb.gz
+  Poly Haven: Potted Plant 01 and Potted Plant 02
+  https://polyhaven.com/a/potted_plant_01
+  https://polyhaven.com/a/potted_plant_02
+  License: CC0 1.0 Universal
+  https://creativecommons.org/publicdomain/zero/1.0/
+  Changes: packaged the original model geometry and 1K textures into local
+  compressed GLB files. Combined the supplied leaf opacity maps with leaf
+  color maps using alpha-preserving WebP. Removed the disproportionately
+  dense dirt/pebble meshes and substituted a simple local soil surface.
+  Geometry/materials are shared by instances of a model. Placement, scale,
+  leaf alpha-to-coverage and material response are adapted for this room.
+  File sizes, triangle counts and SHA-256 hashes are in plants/manifest.json.
+  This credit does not imply endorsement by Poly Haven or the asset authors.
+
+leather-color.webp, leather-normal.webp, leather-roughness.webp
+  Poly Haven: Leather White
+  https://polyhaven.com/a/leather_white
+  License: CC0 1.0 Universal
+  Changes: converted the 1K diffuse, OpenGL normal, and roughness maps to WebP.
+
+upholstery-normal.webp, upholstery-roughness.webp
+  Poly Haven: Fabric Pattern 07
+  https://polyhaven.com/a/fabric_pattern_07
+  License: CC0 1.0 Universal
+  Changes: converted the 1K OpenGL normal and roughness maps to WebP.
+
+city-concrete-color.webp, city-concrete-normal.webp, city-concrete-roughness.webp
+  Poly Haven: Concrete Wall 001
+  https://polyhaven.com/a/concrete_wall_001
+  License: CC0 1.0 Universal
+  Changes: converted the 1K diffuse, OpenGL normal and roughness maps to WebP.
+
+city-brick-color.webp, city-brick-normal.webp, city-brick-roughness.webp
+  Poly Haven: Brick Wall 001
+  https://polyhaven.com/a/brick_wall_001
+  License: CC0 1.0 Universal
+  Changes: converted the 1K diffuse, OpenGL normal and roughness maps to WebP.
+
+city-asphalt-color.webp, city-asphalt-normal.webp, city-asphalt-roughness.webp
+  Poly Haven: Asphalt 02
+  https://polyhaven.com/a/asphalt_02
+  License: CC0 1.0 Universal
+  Changes: converted the 1K diffuse, OpenGL normal and roughness maps to WebP.
+
+The city combines adapted Project PLATEAU building geometry, an authored
+lattice tower, temple geometry, foliage, roads, original facade/interior/sign
+details, and licensed PBR surface scans. PLATEAU attribution and changes are
+documented in ../city/ATTRIBUTION.txt. No photographic skyline is rendered.
+The combined scene is an art-directed interpretation, not a surveyed 1:1
+reconstruction. The temple reuses the original procedural roof/temple kit
+already in this repository. Room geometry, procedural surface details,
+contact-shadow textures, shop signs, and sakura artwork are original to this
+prototype. User-provided reference photos and illustrations are not embedded.
