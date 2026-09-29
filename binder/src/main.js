@@ -9,13 +9,16 @@ import { nearestPocket } from './drag.js';
 import { hydrateIcons, icon } from './icons.js';
 import { RoomAudio } from './audio.js';
 import { installIdleHUD } from './idle-hud.js';
-import { formatCityTime, TIME_PRESETS } from './day-cycle.js';
+import { DEFAULT_CITY_HOUR, formatCityTime, TIME_PRESETS } from './day-cycle.js';
 import { collectionRevision, CollectionConflictError, CollectionStorage } from './collection-storage.js';
 import { planBinderArrangement, spreadForSlot } from './organizer.js';
+import { GRAPHICS_KEY, GRAPHICS_PRESETS } from './render-quality.js';
+import { installMobileViewport } from './mobile-viewport.js';
 
 const $ = id => document.getElementById(id);
 const escape = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+const compactControls = window.matchMedia('(max-width: 767px), (pointer: coarse)');
 const audio = new RoomAudio();
 let state = createCollection();
 let hand = [];
@@ -40,9 +43,10 @@ let autoFoldHand = true;
 let isTurning = false;
 let sceneFailed = false;
 let warmLighting = false;
+let graphicsQuality='auto';
 let weather = 'clear';
 let cityMotion = !reducedMotion.matches;
-let cityHour = 17.75;
+let cityHour = DEFAULT_CITY_HOUR;
 let cloudCover = .6;
 let cloudSpeed = 1;
 let trafficDensity = .75;
@@ -63,6 +67,9 @@ const weatherNames = { clear: 'Clear', rain: 'Rain', fog: 'Fog' };
 const weatherIcons = { clear: 'sun', rain: 'rain', fog: 'fog' };
 
 hydrateIcons();
+installMobileViewport();
+$('bag-filters').open=!compactControls.matches;
+compactControls.addEventListener('change',()=>{ $('bag-filters').open=!compactControls.matches; });
 document.addEventListener('pointerdown', () => { document.documentElement.dataset.inputMode = 'pointer'; }, { passive: true });
 document.addEventListener('keydown', event => {
   if (event.key === 'Tab' || event.key.startsWith('Arrow')) document.documentElement.dataset.inputMode = 'keyboard';
@@ -434,7 +441,7 @@ function closeDialogs() {
   clearHover();
 }
 
-function openBag(location = 'all', restore = null) {
+function openBag(location = 'all', restore = null, focusSearch = !compactControls.matches) {
   if (isTurning) return;
   if(admiredId)stopAdmiring();
   if(hudHidden)setHUDHidden(false);
@@ -445,8 +452,17 @@ function openBag(location = 'all', restore = null) {
   }
   filters.location = location; renderBag(); $('bag-dialog').showModal();
   const control = restore?.id && $('card-grid').querySelector(`[data-inspect-id="${restore.id}"]`);
-  if (control) { control.focus({ preventScroll: true }); $('card-grid').scrollTop = restore.scroll; }
-  else $('card-search').focus();
+  if (control) {
+    control.focus({ preventScroll: true }); $('card-grid').scrollTop = restore.scroll; $('bag-dialog').scrollTop=restore.bagScroll||0;
+    if(compactControls.matches)requestAnimationFrame(()=>{
+      if(!$('bag-dialog').open||!control.isConnected)return;
+      const bag=$('bag-dialog'),rect=control.getBoundingClientRect(),top=bag.querySelector('.bag-header').getBoundingClientRect().bottom+8,footer=bag.querySelector('.bag-footer').getBoundingClientRect();
+      const bottom=footer.height?footer.top-8:bag.getBoundingClientRect().bottom-16;
+      if(rect.top<top)bag.scrollTop+=rect.top-top;
+      else if(rect.bottom>bottom)bag.scrollTop+=rect.bottom-bottom;
+    });
+  } else if(focusSearch) $('card-search').focus({preventScroll:true});
+  else $('bag-title').focus({preventScroll:true});
 }
 
 function renderBag() {
@@ -454,7 +470,7 @@ function renderBag() {
   $('stack-selector').hidden = filters.location !== 'table' && !pile;
   $('stack-filter').value = pile || 'all';
   $('bag-title').innerHTML = `${pile ? escape(PILES[pile]) : 'Your bag'}<span class="title-period">.</span>`;
-  $('bag-subtitle').textContent = pile ? 'Pick up a few cards, then choose which one to place.' : 'Click cards to add them to your hand. Pick as many as you like.';
+  $('bag-subtitle').textContent = pile ? 'Pick up a few cards, then choose which one to place.' : 'Select cards to add them to your hand. Pick as many as you like.';
   const cards = filterCards(state, filters);
   $('results-count').textContent = `${cards.length} ${cards.length === 1 ? 'card' : 'cards'}`;
   $('sort-stack').hidden = !pile;
@@ -474,7 +490,7 @@ function openInspect(id, from = null) {
   const card = CARD_BY_ID.get(id);
   if (!card) { notify('This card could not be found in the collection.', true); return; }
   if (hand.includes(id)) selectCard(id);
-  inspectOrigin = from === 'bag' ? { id, scroll: $('card-grid').scrollTop } : null;
+  inspectOrigin = from === 'bag' ? { id, scroll: $('card-grid').scrollTop, bagScroll:$('bag-dialog').scrollTop } : null;
   inspectedId = id; inspectReturn = from; closeDialogs();
   $('inspect-name').textContent = card.name;
   $('inspect-number').textContent = `${card.number} / ${CATEGORIES[card.category] || card.category}`;
@@ -819,6 +835,14 @@ window.addEventListener('storage', event => {
   }
 });
 $('card-search').addEventListener('input', event => { filters.query = event.target.value; renderBag(); });
+const finishSearch=()=>{
+  $('card-search').blur();
+  $('bag-dialog').querySelector('[data-close="bag-dialog"]').focus({preventScroll:true});
+};
+$('search-done').addEventListener('click',finishSearch);
+$('card-search').addEventListener('keydown',event=>{
+  if(event.key==='Enter'&&!event.isComposing&&compactControls.matches){event.preventDefault();finishSearch();}
+});
 for (const [id, key] of [['category-filter', 'category'], ['rarity-filter', 'rarity'], ['sort-filter', 'sort']]) {
   $(id).addEventListener('change', event => { filters[key] = event.target.value; renderBag(); });
 }
@@ -855,7 +879,7 @@ $('flip-inspection').addEventListener('click', () => {
   $('flip-inspection').innerHTML = `${icon('rotate')}${reverse ? 'Show card front' : 'Turn card over'}`;
 });
 $('inspection-card').addEventListener('pointermove', event => {
-  if (reducedMotion.matches) return;
+  if (reducedMotion.matches || event.pointerType === 'touch') return;
   const rect = event.currentTarget.getBoundingClientRect(), x = (event.clientX - rect.left) / rect.width - .5, y = (event.clientY - rect.top) / rect.height - .5;
   event.currentTarget.style.setProperty('--tilt-x', `${-y * 17}deg`); event.currentTarget.style.setProperty('--tilt-y', `${x * 21}deg`);
   event.currentTarget.style.setProperty('--glare-angle', `${125 + x * 80 - y * 40}deg`);
@@ -945,6 +969,7 @@ document.addEventListener('keydown', event => {
   if (event.ctrlKey || event.metaKey || event.altKey) return;
   const modal = document.querySelector('dialog[open]');
   if (modal) {
+    if(modal===$('bag-dialog')&&event.key==='/'){event.preventDefault();$('card-search').focus({preventScroll:true});}
     if (modal === $('flat-dialog') && ['ArrowLeft', 'ArrowRight'].includes(event.key)) { event.preventDefault(); turn(event.key === 'ArrowLeft' ? -1 : 1, true); }
     if (modal === $('flat-dialog') && event.key.toLowerCase() === 'e' && selectedCardId) openInspect(selectedCardId, 'flat');
     return;
@@ -956,7 +981,7 @@ document.addEventListener('keydown', event => {
     return;
   }
   if (['ArrowLeft', 'ArrowRight'].includes(event.key)) { event.preventDefault(); turn(event.key === 'ArrowLeft' ? -1 : 1); }
-  if (event.key.toLowerCase() === 'b') { event.preventDefault(); openBag(); }
+  if (event.key.toLowerCase() === 'b') { event.preventDefault(); openBag('all',null,true); }
   if (event.key.toLowerCase() === 'e' && selectedCardId) openInspect(selectedCardId);
   if (event.key.toLowerCase() === 'a' && selectedCardId) startAdmiring(selectedCardId);
   if (['Delete', 'Backspace'].includes(event.key) && selectedCardId) {
@@ -1013,6 +1038,20 @@ function roomError(message, fatal = false) {
 }
 
 try {
+  const stored=localStorage.getItem(GRAPHICS_KEY);
+  if(stored!==null){
+    if(!Object.hasOwn(GRAPHICS_PRESETS,stored))throw new Error('The saved graphics setting was not recognized.');
+    graphicsQuality=stored;
+  }
+} catch(error){console.warn('Graphics preference could not be loaded.',error);notify('Graphics preference unavailable. Using Balanced for this session.',true);}
+$('graphics-quality').value=graphicsQuality;
+$('graphics-quality').addEventListener('change',event=>{
+  graphicsQuality=event.target.value;room?.setGraphicsQuality(graphicsQuality);
+  try{localStorage.setItem(GRAPHICS_KEY,graphicsQuality);}
+  catch(error){console.warn('Graphics preference could not be saved.',error);notify('Graphics changed for this session; this browser could not save the preference.',true);}
+});
+
+try {
   await document.fonts.ready;
   const { createRoom } = await import('./room.js');
   room = await createRoom($('room-canvas'), {
@@ -1025,9 +1064,11 @@ try {
       syncUI(); persist(true);
     },
     reducedMotion: reducedMotion.matches,
+    graphicsQuality,
   });
   room.sync(state, hand, selectedCardId); room.lighting(warmLighting);
   room.view(activeView);
+  room.setGraphicsQuality(graphicsQuality);
   renderNavigation();
   renderAtmosphere();
   room.setCityTime(cityHour); room.setCityClouds(cloudCover); room.setCloudSpeed(cloudSpeed); room.setTrafficDensity(trafficDensity);

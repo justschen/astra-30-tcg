@@ -1,16 +1,16 @@
 import * as THREE from 'three';
 
 const recipes={
-  satin:{label:'Satin coating',roughness:.67,metalness:0,iridescence:0,clearcoat:.12,pattern:'none'},
-  holo:{label:'Smooth holo',roughness:.4,metalness:.46,iridescence:.68,clearcoat:.14,pattern:'bands'},
-  reverse:{label:'Reverse holo',roughness:.4,metalness:.44,iridescence:.64,clearcoat:.16,pattern:'bands'},
-  cosmos:{label:'Cosmos holo',roughness:.39,metalness:.5,iridescence:.7,clearcoat:.15,pattern:'cosmos'},
-  ex:{label:'Star-layer holo',roughness:.4,metalness:.48,iridescence:.65,clearcoat:.16,pattern:'stars'},
-  smooth:{label:'Full-art foil',roughness:.42,metalness:.44,iridescence:.56,clearcoat:.16,pattern:'bands'},
-  etched:{label:'Textured foil',roughness:.44,metalness:.5,iridescence:.49,clearcoat:.16,pattern:'etched',relief:.09,anisotropy:.32},
-  confetti:{label:'Confetti foil',roughness:.42,metalness:.5,iridescence:.57,clearcoat:.16,pattern:'confetti',relief:.07},
-  fireworks:{label:'Starburst foil',roughness:.4,metalness:.46,iridescence:.65,clearcoat:.16,pattern:'fireworks'},
-  metallic:{label:'Metallic foil preview',roughness:.39,metalness:.46,iridescence:.12,clearcoat:.18,pattern:'bands'},
+  satin:{label:'Satin coating',roughness:.74,metalness:0,iridescence:0,clearcoat:.05,pattern:'none'},
+  holo:{label:'Smooth holo',roughness:.50,metalness:.42,iridescence:.68,clearcoat:.08,pattern:'bands'},
+  reverse:{label:'Reverse holo',roughness:.50,metalness:.40,iridescence:.64,clearcoat:.08,pattern:'bands'},
+  cosmos:{label:'Cosmos holo',roughness:.49,metalness:.44,iridescence:.7,clearcoat:.08,pattern:'cosmos'},
+  ex:{label:'Star-layer holo',roughness:.50,metalness:.44,iridescence:.65,clearcoat:.09,pattern:'stars'},
+  smooth:{label:'Full-art foil',roughness:.52,metalness:.38,iridescence:.56,clearcoat:.08,pattern:'bands'},
+  etched:{label:'Textured foil',roughness:.54,metalness:.43,iridescence:.49,clearcoat:.09,pattern:'etched',relief:.09,anisotropy:.32},
+  confetti:{label:'Confetti foil',roughness:.52,metalness:.44,iridescence:.57,clearcoat:.09,pattern:'confetti',relief:.07},
+  fireworks:{label:'Starburst foil',roughness:.50,metalness:.40,iridescence:.65,clearcoat:.08,pattern:'fireworks'},
+  metallic:{label:'Metallic foil preview',roughness:.49,metalness:.40,iridescence:.12,clearcoat:.10,pattern:'bands'},
 };
 
 export const CARD_FINISH_RECIPES=Object.freeze(Object.fromEntries(Object.entries(recipes).map(([key,recipe])=>[key,Object.freeze(recipe)])));
@@ -90,7 +90,7 @@ function makeFinishMaps(finish){
     foil[at]=Math.round(mask*(.62+pattern*.38)*255);
     foil[at+1]=Math.round((.14+pattern*.72)*255);foil[at+2]=0;foil[at+3]=255;
     rough[at]=rough[at+2]=rough[at+3]=255;
-    rough[at+1]=Math.round((1-mask*(.12+pattern*.21))*255);
+    rough[at+1]=Math.round((1-mask*(.08+pattern*.14))*255);
     if(normals){
       const dx=(patternAt(recipe.pattern,u+1/size,v)-patternAt(recipe.pattern,u-1/size,v))*mask;
       const dy=(patternAt(recipe.pattern,u,v+1/size)-patternAt(recipe.pattern,u,v-1/size))*mask;
@@ -112,7 +112,8 @@ export class CardFinishLibrary {
     if(finish.coverage!=='none'&&!this.maps.has(key))this.maps.set(key,makeFinishMaps(finish));
     const maps=this.maps.get(key);
     material.roughness=recipe.roughness;material.metalness=recipe.metalness;
-    material.clearcoat=recipe.clearcoat;material.clearcoatRoughness=.36;material.specularIntensity=.46;
+    material.clearcoat=recipe.clearcoat*.5;material.clearcoatRoughness=.65;material.specularIntensity=.12;material.envMapIntensity=.4;
+    material.toneMapped=false;
     material.iridescence=recipe.iridescence;material.iridescenceIOR=1.5;material.iridescenceThicknessRange=[180,540];
     material.iridescenceMap=maps?.foil||null;material.iridescenceThicknessMap=maps?.foil||null;
     material.roughnessMap=maps?.roughness||null;material.normalMap=maps?.normal||null;
@@ -130,13 +131,31 @@ export class CardFinishLibrary {
       `);
       shader.fragmentShader=shader.fragmentShader.replace('#include <lights_physical_fragment>',`
         #include <lights_physical_fragment>
+        float printedInk=smoothstep(.025,.24,dot(diffuseColor.rgb,vec3(.2126,.7152,.0722)));
+        material.specularColorBlended*=mix(.12,1.0,printedInk);
+        #ifdef USE_CLEARCOAT
+          material.clearcoat*=printedInk;
+        #endif
         #ifdef USE_IRIDESCENCE
-          float printedInk=smoothstep(.018,.16,dot(diffuseColor.rgb,vec3(.2126,.7152,.0722)));
-          material.iridescence*=mix(.16,1.0,printedInk);
+          material.iridescence*=mix(.06,1.0,printedInk);
         #endif
       `);
+      // Keep photographed print contrast separate from the added, bounded foil reflection.
+      shader.fragmentShader=shader.fragmentShader.replace('#include <opaque_fragment>',`
+        vec3 printIllumination=totalDiffuse/max(diffuseColor.rgb*(1.0-metalnessFactor),vec3(.0001));
+        vec3 printedColor=diffuseColor.rgb*min(printIllumination,vec3(1.0));
+        vec3 finishReflection=max(outgoingLight-totalDiffuse,vec3(0.0));
+        float finishBudget=.012;
+        #ifdef USE_IRIDESCENCEMAP
+          finishBudget+=.14*foilCoverage;
+          finishReflection*=1.8;
+        #endif
+        finishBudget*=printedInk;
+        outgoingLight=printedColor+finishReflection/(vec3(1.0)+finishReflection/max(finishBudget,.00001));
+        #include <opaque_fragment>
+      `);
     };
-    material.customProgramCacheKey=()=> 'afterhours-card-print-finish-v2';
+    material.customProgramCacheKey=()=> 'afterhours-card-print-finish-v4';
     material.needsUpdate=true;
     return finish;
   }

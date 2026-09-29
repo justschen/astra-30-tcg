@@ -77,3 +77,17 @@ test('switching rarity clears incompatible relief and optical maps rather than r
   assert.throws(()=>library.apply(new THREE.MeshBasicMaterial(),card('Rare')),/physical material/);
   material.dispose();sourceMap.dispose();library.dispose();
 });
+
+test('card coatings retain foil but avoid mirror-like roughness and a second hard clearcoat highlight',()=>{
+  const library=new CardFinishLibrary();
+  for(const rarity of ['Rare','Double Rare','Illustration Rare','Special Illustration Rare','Classic Collection','Futuristic Rare']){
+    const material=new THREE.MeshPhysicalMaterial();library.apply(material,card(rarity));
+    const green=material.roughnessMap.image.data.filter((_,index)=>index%4===1);
+    assert.ok(material.roughness*Math.min(...green)/255>=.38,'Foil maps must not turn the artwork into a near-mirror');
+    assert.ok(material.clearcoat<=.05&&material.clearcoatRoughness>=.6&&material.specularIntensity<=.12);
+    assert.equal(material.toneMapped,false,'Photographic card print must not be graded a second time with the room HDR lights');
+    assert.ok(material.iridescence>0&&material.envMapIntensity>0);
+    material.dispose();
+  }
+  library.dispose();
+});

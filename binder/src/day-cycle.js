@@ -4,6 +4,7 @@ export const TIME_PRESETS = [
   { id: 'dusk', label: 'Dusk', hour: 17.75 },
   { id: 'after-dark', label: 'After dark', hour: 22 },
 ];
+export const DEFAULT_CITY_HOUR = 22;
 
 const smoothstep = (low, high, value) => {
   const t = Math.max(0, Math.min(1, (value - low) / (high - low)));

@@ -3,6 +3,7 @@ import bag from '@phosphor-icons/core/assets/regular/backpack.svg';
 import book from '@phosphor-icons/core/assets/regular/book-open.svg';
 import left from '@phosphor-icons/core/assets/regular/arrow-left.svg';
 import right from '@phosphor-icons/core/assets/regular/arrow-right.svg';
+import down from '@phosphor-icons/core/assets/regular/caret-down.svg';
 import sound from '@phosphor-icons/core/assets/regular/speaker-high.svg';
 import mute from '@phosphor-icons/core/assets/regular/speaker-slash.svg';
 import help from '@phosphor-icons/core/assets/regular/question.svg';
@@ -27,7 +28,7 @@ import pause from '@phosphor-icons/core/assets/regular/pause.svg';
 import play from '@phosphor-icons/core/assets/regular/play.svg';
 import settings from '@phosphor-icons/core/assets/regular/gear-six.svg';
 
-const icons = { cards, bag, book, left, right, sound, mute, help, close, search, hand, undo, check, moon, sun, download, upload, grid, stack, eye, external, room, rotate, rain, fog, pause, play, settings };
+const icons = { cards, bag, book, left, right, down, sound, mute, help, close, search, hand, undo, check, moon, sun, download, upload, grid, stack, eye, external, room, rotate, rain, fog, pause, play, settings };
 export function icon(name) {
   const svg = icons[name];
   if (!svg) throw new Error(`Unknown icon: ${name}`);

@@ -3,7 +3,7 @@ import { canvasTexture, freezeStaticTransforms, random } from './materials.js';
 import { CITY_FAR, CITY_GROUND, CITY_STREETS, createCityLayout } from './city-layout.js';
 import { CityBatch, citySurfaceTexture, makeFacadeMaterial } from './city-materials.js';
 import { createSideParks, createTemplePark, createTokyoTower } from './city-landmarks.js';
-import { solarState } from './day-cycle.js';
+import { DEFAULT_CITY_HOUR, solarState } from './day-cycle.js';
 import { createStreetscape } from './city-streetscape.js';
 import { createRoadRibbon } from './city-roads.js';
 import { cityIdentity } from './city-life.js';
@@ -546,7 +546,7 @@ export async function createSkyline(scene, assets, onProgress, onWarning = () =>
   Object.assign(sun.shadow.camera, { left: -180, right: 180, top: 220, bottom: -160, near: 1, far: 650 });
   sun.shadow.camera.updateProjectionMatrix();
   root.add(sun, sun.target);
-  let hour = 17.75, night = .65, weather = 'clear', towerEnabled = true,cloudCover=.6;
+  let hour = DEFAULT_CITY_HOUR, night = 1, weather = 'clear', towerEnabled = true,cloudCover=.6;
   const emissions = [...temple.emission,...sideParks.emission, [materials.streetLamp, .85], [materials.signal, .85]];
   const groundLights = [[8.7, -52], [11, -109], [12.3, -156], [-69, -155]].map(([x, z]) => {
     const light = new THREE.PointLight(0xffc885, 38, 18, 2);

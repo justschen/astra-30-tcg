@@ -42,6 +42,11 @@ function assertUpright(view) {
   assert.equal(view.euler.z, 0);
 }
 
+test('admiring a card does not add a camera light that relights the room when it appears or disappears',t=>{
+  const {view}=createAdmiration(t);
+  assert.equal(view.root.getObjectByProperty('isLight',true),undefined);
+});
+
 test('all yaw angles and extreme pitch inputs keep both faces upright relative to the camera', t => {
   const { view } = createAdmiration(t);
   assert.equal(ADMIRE_PITCH_LIMIT, Math.PI / 3);

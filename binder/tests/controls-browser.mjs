@@ -29,6 +29,11 @@ export async function checkRoomControls(browser, origin, shots) {
     });
     assert.equal(await page.locator('#time-preset').isVisible(),true);
     assert.deepEqual(await page.locator('#time-preset option:not(:disabled)').allTextContents(),['Dawn','Day','Dusk','After dark']);
+    assert.equal(await page.locator('#time-preset').inputValue(),'after-dark');
+    assert.equal(await page.locator('#city-time').inputValue(),'22');
+    assert.equal(await page.locator('#city-time-label').textContent(),'22:00');
+    assert.equal(await page.locator('html').getAttribute('data-weather'),'clear');
+    assert.equal(await page.locator('#weather-toggle').getAttribute('aria-label'),'Weather: Clear. Switch to rain.');
     await page.locator('#city-view').click();await page.waitForTimeout(1200);
     await page.locator('#help-open').click();
     await page.locator('#city-motion-toggle').click();

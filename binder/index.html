@@ -36,7 +36,7 @@
     </header>
     <div class="room-actions" role="group" aria-label="Room settings and visibility">
       <div class="top-actions idle-ui">
-        <button class="icon-button" id="weather-toggle" aria-label="Weather: Rain. Switch to fog." title="Weather: Rain"><span data-icon="rain"></span></button>
+        <button class="icon-button" id="weather-toggle" aria-label="Weather: Clear. Switch to rain." title="Weather: Clear"><span data-icon="sun"></span></button>
         <button class="icon-button" id="lighting-toggle" aria-label="Switch to warm room lighting" title="Room lighting"><span data-icon="moon"></span></button>
         <button class="icon-button" id="sound-toggle" aria-label="Turn ambient sound on" aria-pressed="false" title="Ambient sound"><span data-icon="mute"></span></button>
         <button class="icon-button" id="help-open" aria-label="Settings and collection information" title="Settings and controls"><span data-icon="settings"></span></button>
@@ -49,7 +49,7 @@
       <p class="collection-subtitle">Pok&eacute;mon. Thirty years of collecting.</p>
       <div class="collection-progress"><span id="collection-count">14</span><span>/ <span id="variant-total">251</span> in your binder</span><span class="progress-rule"><span id="progress-fill"></span></span></div>
     </section>
-    <div class="room-coordinate idle-ui" aria-hidden="true"><span class="night-mark"></span>TOKYO / 17:45</div>
+    <div class="room-coordinate idle-ui" aria-hidden="true"><span class="night-mark"></span>TOKYO / 22:00</div>
     <div id="storage-warning" class="storage-warning" role="alert" hidden><span id="storage-message"></span><button id="storage-retry" class="text-button">Enable saving</button><button id="storage-load-latest" class="text-button" hidden>Load latest saved</button><button id="storage-export" class="text-button">Export this tab</button></div>
     <div id="city-load-warning" class="city-load-warning" role="status" hidden><span id="city-load-message"></span><button class="text-button" id="city-retry">Reload city</button></div>
     <div id="scene-loading" class="scene-loading" role="status"><div class="loading-pocket"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div><span id="scene-loading-label">Setting the table...</span><div class="loading-actions"><button class="secondary-button" id="loading-bag">Browse cards while the room loads</button><button class="text-button" id="loading-pocket">Use Pocket view now</button></div></div>
@@ -85,26 +85,30 @@
     <input id="import-file" type="file" accept=".json,application/json" hidden>
   </main>
 
-  <dialog id="bag-dialog" class="bag-dialog" aria-labelledby="bag-title">
-    <div class="dialog-heading"><div><p class="micro-label">THE COLLECTION</p><h2 id="bag-title">Your bag<span class="title-period">.</span></h2></div><button class="icon-button" data-close="bag-dialog" aria-label="Close bag"><span data-icon="close"></span></button></div>
+  <dialog id="bag-dialog" class="bag-dialog" aria-labelledby="bag-title" aria-describedby="bag-subtitle">
+    <div class="bag-header">
+    <div class="dialog-heading"><div><p class="micro-label">THE COLLECTION</p><h2 id="bag-title" tabindex="-1">Your bag<span class="title-period">.</span></h2></div><button class="icon-button" data-close="bag-dialog" aria-label="Close bag"><span data-icon="close"></span></button></div>
     <p class="dialog-subtitle" id="bag-subtitle">Every card has a place. Find its next one.</p>
-    <label class="search-field"><span class="sr-only">Search cards by name, number, or artist</span><span data-icon="search"></span><input id="card-search" type="search" autocomplete="off" placeholder="Name, number, or artist..." autofocus><kbd>/</kbd></label>
+    <div class="search-field"><label class="sr-only" for="card-search">Search cards by name, number, or artist</label><span data-icon="search" aria-hidden="true"></span><input id="card-search" type="search" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="search" placeholder="Name, number, or artist..."><button class="text-button search-done" id="search-done" type="button">Done</button><kbd aria-hidden="true">/</kbd></div>
+    </div>
     <div class="location-tabs" role="group" aria-label="Card location"><button data-location="all" class="is-active" aria-pressed="true">All cards</button><button data-location="bag" aria-pressed="false">In bag</button><button data-location="binder" aria-pressed="false">In binder</button><button data-location="table" aria-pressed="false">On table</button></div>
+    <details class="bag-filters" id="bag-filters" open><summary>Filters and sorting<span data-icon="down"></span></summary>
     <label class="stack-selector" id="stack-selector" hidden>Table stack<select id="stack-filter"><option value="all">All three stacks</option><option value="unsorted">To sort</option><option value="favorites">Keepers</option><option value="trades">Trades</option></select></label>
     <div class="filter-row">
       <label>Collection<select id="category-filter"><option value="all">All sections</option></select></label>
       <label>Rarity<select id="rarity-filter"><option value="all">All rarities</option></select></label>
       <label>Sort by<select id="sort-filter"><option value="number">Set order</option><option value="name">Name A-Z</option><option value="rarity">Rarity</option></select></label>
     </div>
+    </details>
     <div class="results-line"><span id="results-count" aria-live="polite"></span><button class="text-button" id="organizer-open">Organize binder</button><button class="text-button" id="sort-stack" hidden>Sort this stack</button><button class="text-button" id="clear-filters">Clear filters</button></div>
     <div class="card-grid" id="card-grid"></div>
     <div class="empty-state" id="bag-empty" hidden><span data-icon="search"></span><h3>No cards found</h3><p>Try a different name or clear your filters.</p></div>
-    <footer class="bag-footer"><span data-icon="hand"></span><p>Pick up cards, then click one in your hand to select it.</p><span class="catalog-note">28 artwork reveals pending</span><button class="primary-button" id="bag-place" disabled>Pick up cards first</button></footer>
+    <footer class="bag-footer"><span data-icon="hand"></span><p>Pick up cards, then choose one from your hand.</p><span class="catalog-note">Artwork available for all 251 variants</span><button class="primary-button" id="bag-place" disabled>Pick up cards first</button></footer>
   </dialog>
 
   <dialog id="inspect-dialog" class="inspect-dialog" aria-labelledby="inspect-name">
     <button class="icon-button inspector-close" data-close="inspect-dialog" aria-label="Close card inspection"><span data-icon="close"></span></button>
-    <div class="inspection-stage"><div class="inspection-card" id="inspection-card"></div><p>Move your mouse to catch the light.</p><button class="text-button flip-card-button" id="flip-inspection"><span data-icon="rotate"></span>Turn card over</button></div>
+    <div class="inspection-stage"><div class="inspection-card" id="inspection-card"></div><p>Flip for the reverse, or admire it in the room.</p><button class="text-button flip-card-button" id="flip-inspection"><span data-icon="rotate"></span>Turn card over</button></div>
     <section class="inspection-details">
       <p class="micro-label">30TH CELEBRATION</p><h2 id="inspect-name"></h2><p class="card-number" id="inspect-number"></p>
       <dl class="card-details"><div><dt>Rarity</dt><dd id="inspect-rarity"></dd></div><div><dt>Edition</dt><dd id="inspect-variant"></dd></div><div><dt>Illustrator</dt><dd id="inspect-artist"></dd></div><div><dt>Currently</dt><dd id="inspect-location"></dd></div></dl>
@@ -154,10 +158,11 @@
     <p class="dialog-subtitle">A virtual binder, a few stacks, and the city outside.</p>
     <section class="interaction-settings" aria-labelledby="room-controls-title"><h3 id="room-controls-title">Room controls</h3><p class="setting-help">Drag right to move the scene right, or left to move it left. Drag down to look up; drag up to look down. Page turns use the arrow keys or a page-edge drag.</p><p class="setting-help">The top overlays and save status fade after 10 seconds of inactivity. Move, tap, or press a key to bring them back. Menus stay open while you use them.</p></section>
     <section class="tv-settings"><h3>Television</h3><p class="setting-help">Watch the requested video on the right wall. YouTube is contacted only when you play it; playback starts muted.</p><div class="data-tools"><button class="secondary-button" id="tv-view">Look at the TV</button><button class="secondary-button" id="tv-power" aria-pressed="false">Play / pause TV</button></div></section>
+    <section class="graphics-settings" aria-labelledby="graphics-title"><h3 id="graphics-title">Graphics and performance</h3><label for="graphics-quality">Rendering quality<select id="graphics-quality" aria-describedby="graphics-help"><option value="auto">Balanced (recommended)</option><option value="detail">Full detail</option><option value="smooth">Smooth</option></select></label><p class="setting-help" id="graphics-help">Balanced uses a steady render resolution while moving, placing cards, and resting, so the scene does not shift when you stop. Full detail uses more pixels; Smooth uses fewer. All modes reuse unchanged room shading. Card artwork, buildings, traffic, and people are never removed.</p></section>
     <dl class="controls-list"><div><dt>Pick up cards</dt><dd>Click cards in your binder, bag, or table stacks. No dragging needed. The hand grows left and wraps; Fold hand keeps only the selected card visible.</dd></div><div><dt>Select and place</dt><dd>Click a hand card to select it, then click a highlighted pocket or stack label. Clear hand returns all held cards to the bag in one undoable action.</dd></div><div><dt>Inspect</dt><dd>Double-click or right-click a hand card, or press <kbd>E</kbd> to inspect the selected card. Bag cards also have an eye button.</dd></div><div><dt>Admire</dt><dd><kbd>A</kbd> holds up the selected card. Drag left/right to turn all the way around, up/down to tilt, or use the arrow keys and buttons. The card stays upright. Flip shows the other side; Reset restores the front. <kbd>Esc</kbd> returns to your hand.</dd></div><div><dt>Lift and turn</dt><dd>Lift binder holds the actual book upright. <kbd>&larr;</kbd> <kbd>&rarr;</kbd> and mouse page-edge turns work both in hand and on the table. Drag the room to look; scroll to zoom.</dd></div><div><dt>Your bag</dt><dd><kbd>B</kbd> opens your bag. On table includes a selector for To sort, Keepers, and Trades. Place cards returns to the current binder view.</dd></div><div><dt>Change your mind</dt><dd><kbd>Delete</kbd> puts back the selected card. <kbd>Esc</kbd> closes a menu or returns unplaced cards to their saved locations. <kbd>Ctrl / Cmd</kbd> + <kbd>Z</kbd> restores the last action and selection.</dd></div><div><dt>Keyboard collection</dt><dd>Pocket view uses standard buttons and a card selector. Tab to a card or pocket and press Enter. It also works without WebGL.</dd></div></dl>
     <section class="atmosphere-controls" aria-labelledby="atmosphere-title">
       <h3 id="atmosphere-title">Outside your window</h3>
-      <label class="city-night-control" for="city-time"><span>Time of day <output id="city-time-label">17:45</output></span><input id="city-time" type="range" min="0" max="24" step="0.05" value="17.75"><span class="range-labels"><span>00:00</span><span>12:00</span><span>24:00</span></span></label>
+      <label class="city-night-control" for="city-time"><span>Time of day <output id="city-time-label">22:00</output></span><input id="city-time" type="range" min="0" max="24" step="0.05" value="22"><span class="range-labels"><span>00:00</span><span>12:00</span><span>24:00</span></span></label>
       <div class="time-presets" role="group" aria-label="Time of day presets"></div>
       <div class="weather-options" role="group" aria-label="Weather"><button data-weather="clear" aria-pressed="true"><span data-icon="sun"></span>Clear</button><button data-weather="rain" aria-pressed="false"><span data-icon="rain"></span>Rain</button><button data-weather="fog" aria-pressed="false"><span data-icon="fog"></span>Fog</button></div>
       <label class="city-night-control" for="cloud-cover"><span>Cloud cover <output id="cloud-cover-label">60%</output></span><input id="cloud-cover" type="range" min="0" max="100" value="60"></label>

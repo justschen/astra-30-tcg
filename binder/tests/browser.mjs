@@ -6,17 +6,21 @@ import { CARDS, CARD_BY_ID, STORAGE_KEY, parseCollection } from '../src/collecti
 import { checkRoomControls } from './controls-browser.mjs';
 import { checkCityGeometry } from './city-geometry-browser.mjs';
 import { checkWorldQOL } from './world-qol-browser.mjs';
-import { checkParallelRoomLoading, checkPausedRendering, checkRoomDepthAlignment } from './performance-browser.mjs';
+import { checkParallelRoomLoading, checkPausedRendering, checkRoomCacheFidelity, checkRoomDepthAlignment } from './performance-browser.mjs';
 import { checkImmersionUI } from './immersion-browser.mjs';
 import { checkCardFinishes } from './card-finishes-browser.mjs';
 import { checkBuildingMassing } from './building-massing-browser.mjs';
 import { checkAuditFixes } from './review-fixes-browser.mjs';
 import { checkRoomNooks } from './room-nooks-browser.mjs';
+import { checkGraphicsControls } from './graphics-browser.mjs';
+import { checkRoomToneMapping } from './room-render-cache-browser.mjs';
+import { checkMobileUX } from './mobile-ux-browser.mjs';
 
 const origin = process.env.BINDER_URL || 'http://127.0.0.1:4173';
 const shots = new URL('../../shots/binder/', import.meta.url);
 await fs.mkdir(shots, { recursive: true });
-const browser = await chromium.launch({ headless: true, args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] });
+const browserOptions = { headless: true, args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] };
+let browser = await chromium.launch(browserOptions);
 const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
 const page = await context.newPage();
 const errors = [];
@@ -298,6 +302,7 @@ try {
   const frozenRainB = await page.locator('#room-canvas').screenshot();
   assert.equal(await changedPixels(frozenRainA, frozenRainB), 0, 'Rain must also remain frozen while city motion is paused');
   const binderRegion = { left: 310, top: 545, width: 770, height: 200 };
+  await page.locator('#time-preset').selectOption('day');await page.waitForTimeout(500);
   const beforeRelighting = await sharp(await page.screenshot()).extract(binderRegion).png().toBuffer();
   await page.locator('#help-open').click();
   await page.locator('#city-time').fill('22');
@@ -333,11 +338,13 @@ try {
   for (const id of mobileIds) await mobile.locator(`.collection-card[data-card-id="${id}"]`).tap();
   assert.deepEqual(await queue(mobile), mobileIds);
   const cdp = await mobileContext.newCDPSession(mobile), grid = await mobile.locator('#card-grid').boundingBox();
-  const touchX = grid.x + grid.width / 2, touchY = grid.y + grid.height - 50;
+  const scrollBefore=await mobile.locator('#bag-dialog').evaluate(element=>element.scrollTop);
+  const footer=await mobile.locator('.bag-footer').boundingBox();
+  const touchX = grid.x + grid.width / 2, touchY = Math.min(600,footer.y-30);
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: touchX, y: touchY, id: 1 }] });
   for (let i = 1; i <= 6; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: touchX, y: touchY - i * 24, id: 1 }] });
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-  assert.ok(await mobile.locator('#card-grid').evaluate(element => element.scrollTop) > 0);
+  await mobile.waitForFunction(before=>document.getElementById('bag-dialog').scrollTop>before,scrollBefore);
   assert.deepEqual(await queue(mobile), mobileIds, 'Scrolling the bag must not pick up more cards');
   await mobile.locator('#bag-place').tap();
   await mobile.locator(`[data-hand-select="${mobileIds[2]}"]`).tap();
@@ -398,10 +405,17 @@ try {
   await checkCityGeometry(browser, origin, shots);
   await checkPausedRendering(browser,origin);
   await checkRoomDepthAlignment(browser,origin,shots);
+  await checkRoomDepthAlignment(browser,origin,shots,'auto');
+  await checkRoomCacheFidelity(browser,origin);
+  await checkRoomToneMapping(browser,origin);
+  await checkGraphicsControls(browser,origin,shots);
+  // Release accumulated GPU/process caches before the second independent browser cohort.
+  await browser.close();browser=await chromium.launch(browserOptions);
   await checkParallelRoomLoading(browser,origin);
   await checkWorldQOL(browser, origin, shots);
   await checkImmersionUI(browser,origin,shots);
   await checkRoomNooks(browser,origin);
+  await checkMobileUX(browser,origin,shots);
   await checkCardFinishes(browser,origin,shots);
   await checkBuildingMassing(browser,origin,shots);
   await checkAuditFixes(browser,origin,shots);

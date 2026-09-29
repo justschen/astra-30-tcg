@@ -36,8 +36,33 @@ export async function checkCardFinishes(browser,origin,shots){
         unknown:{rarity:'RGB Rare',variant:'Holo',category:'secret'},
       };
       window.finishProbe={
-        render(family,yaw=-.2,pitch=-.2){
+        render(family,yaw=-.2,pitch=-.2,legacy=false){
           const finish=finishes.apply(material,fixtures[family]);card.rotation.set(pitch,yaw,0,'YXZ');card.updateMatrixWorld(true);
+          let oldRoughness=null;
+          if(legacy){
+            const original=material.roughnessMap,bytes=original.image.data.slice(),foil=material.iridescenceMap.image.data;
+            for(let i=0;i<bytes.length;i+=4){
+              const pattern=THREE.MathUtils.clamp((foil[i+1]/255-.14)/.72,0,1);
+              const coverage=THREE.MathUtils.clamp(foil[i]/255/(.62+pattern*.38),0,1);
+              bytes[i+1]=Math.round((1-coverage*(.12+pattern*.21))*255);
+            }
+            oldRoughness=new THREE.DataTexture(bytes,original.image.width,original.image.height,original.format,original.type);
+            oldRoughness.colorSpace=original.colorSpace;oldRoughness.generateMipmaps=original.generateMipmaps;
+            oldRoughness.minFilter=original.minFilter;oldRoughness.magFilter=original.magFilter;oldRoughness.anisotropy=original.anisotropy;oldRoughness.needsUpdate=true;
+            material.roughnessMap=oldRoughness;material.roughness=.4;material.metalness=.46;material.clearcoat=.14;
+            material.clearcoatRoughness=.36;material.specularIntensity=.46;material.envMapIntensity=1;material.toneMapped=true;
+            material.onBeforeCompile=shader=>{
+              shader.fragmentShader=shader.fragmentShader.replace('#include <metalnessmap_fragment>',\`
+                #include <metalnessmap_fragment>
+                #ifdef USE_IRIDESCENCEMAP
+                  float ink=dot(diffuseColor.rgb,vec3(.2126,.7152,.0722));
+                  float coverage=texture2D(iridescenceMap,vIridescenceMapUv).r*smoothstep(.018,.16,ink);
+                  metalnessFactor=mix(.015,metalnessFactor,coverage);
+                #endif
+              \`);
+            };
+            material.customProgramCacheKey=()=> 'pre-calibration-card-probe';
+          }
           renderer.render(scene,camera);
           const gl=renderer.getContext(),samples=[];
           for(const [u,v]of [[.22,.59],[.38,.7],[.61,.55],[.78,.77]]){
@@ -45,7 +70,15 @@ export async function checkCardFinishes(browser,origin,shots){
             const pixels=new Uint8Array(4);gl.readPixels(Math.round((point.x*.5+.5)*900),Math.round((point.y*.5+.5)*900),1,1,gl.RGBA,gl.UNSIGNED_BYTE,pixels);
             samples.push(...pixels.slice(0,3));
           }
-          return {finish,samples,relief:Boolean(material.normalMap),textureCount:renderer.info.memory.textures,cache:finishes.maps.size};
+          const luminance=[],frame=new Uint8Array(900*900*4);gl.readPixels(0,0,900,900,gl.RGBA,gl.UNSIGNED_BYTE,frame);
+          for(let row=0;row<24;row++)for(let column=0;column<30;column++){
+            const u=.10+column/29*.80,v=.47+row/23*.32;
+            const point=card.localToWorld(new THREE.Vector3((u-.5)*1.25,(v-.5)*1.75,0)).project(camera);
+            const at=(Math.round((point.y*.5+.5)*900)*900+Math.round((point.x*.5+.5)*900))*4;
+            luminance.push(frame[at]*.2126+frame[at+1]*.7152+frame[at+2]*.0722);
+          }
+          luminance.sort((a,b)=>a-b);oldRoughness?.dispose();
+          return {finish,samples,highlight:luminance[Math.floor(luminance.length*.95)],median:luminance[Math.floor(luminance.length*.5)],relief:Boolean(material.normalMap),textureCount:renderer.info.memory.textures,cache:finishes.maps.size};
         },
         dispose(){finishes.dispose();card.geometry.dispose();material.dispose();map.dispose();environment.dispose();renderer.dispose()},
       };
@@ -80,10 +113,15 @@ export async function checkCardFinishes(browser,origin,shots){
     assert.ok(distinct>1500,'Smooth and textured foil must have distinct rendered surface response');
     const first=await page.evaluate(()=>window.finishProbe.render('holo',-.35,.15));
     const turned=await page.evaluate(()=>window.finishProbe.render('holo',.38,-.18));
-    assert.ok(first.samples.reduce((sum,value,i)=>sum+Math.abs(value-turned.samples[i]),0)>25,'The same artwork coordinates must change reflection when the card is angled');
+    const angleChange=first.samples.reduce((sum,value,i)=>sum+Math.abs(value-turned.samples[i]),0);
+    assert.ok(angleChange>25,`The same artwork coordinates must change reflection when angled (${angleChange}; ${first.samples.join(',')} -> ${turned.samples.join(',')})`);
     const stable=await page.screenshot();await page.evaluate(()=>window.finishProbe.render('holo',.38,-.18));
     assert.deepEqual(await raw(await page.screenshot()),await raw(stable),'A stationary finish must not sparkle or animate on a timer');
     assert.equal((await page.evaluate(()=>window.finishProbe.render('unknown'))).finish.confidence,'unknown');
+    const oldHighlight=await page.evaluate(()=>window.finishProbe.render('holo',-.16,-.24,true));
+    const softened=await page.evaluate(()=>window.finishProbe.render('holo',-.16,-.24));
+    assert.ok(softened.highlight<oldHighlight.highlight-8,`The same gray printed artwork must retain fewer harsh highlight peaks (${oldHighlight.highlight.toFixed(1)} -> ${softened.highlight.toFixed(1)})`);
+    assert.ok(softened.median>70,'Reducing glare must not make the printed artwork too dark to read');
     assert.deepEqual(errors,[]);
     console.log('PASS: distinct smooth, textured, cosmos and confetti finishes; angle-dependent response, stationary stability and explicit unknown-printing metadata');
   }finally{

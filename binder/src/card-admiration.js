@@ -26,7 +26,6 @@ export class CardAdmiration {
     });
     const back=new THREE.Mesh(this.front.geometry,new THREE.MeshStandardMaterial({map:reverse,roughness:.71,metalness:.04}));
     back.position.z=-.007;back.rotation.y=Math.PI;this.card.add(back);
-    this.light=new THREE.PointLight(0xfff3db,2.2,7,2);this.light.position.set(-.7,1.4,1.4);this.root.add(this.light);
     this.map=null;
   }
   show(id){

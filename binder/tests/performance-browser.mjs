@@ -7,17 +7,19 @@ import fs from 'node:fs/promises';
 
 const origin=process.env.BINDER_URL||'http://127.0.0.1:4173';
 const root=fileURLToPath(new URL('../../',import.meta.url));
-async function createAuditPage(browser,origin,pageOptions={}){
+async function createAuditPage(browser,origin,pageOptions={},graphicsQuality='detail'){
 const bundle=await build({
   stdin:{resolveDir:root,contents:`
     import * as THREE from 'three';
     import {createRoom} from './binder/src/room.js';
     import {Binder} from './binder/src/binder3d.js';
     import {CityLightPass} from './binder/src/city-light-pass.js';
+    import {RoomRenderCache} from './binder/src/room-render-cache.js';
     import {CARDS,cardImage,createCollection} from './binder/src/collection.js';
     const samples={active:false,frames:[],work:[],gpu:[],draws:[],queries:[],last:0,drawCalls:0,occluders:true,running:true,staleProbes:[]};
     const cityRender=CityLightPass.prototype.render;
-    const buildCovers=Binder.prototype.buildCovers;let binder,legacySheets;
+    const buildCovers=Binder.prototype.buildCovers,cacheRender=RoomRenderCache.prototype.render;let binder,legacySheets,roomCache;
+    RoomRenderCache.prototype.render=function(...args){roomCache=this;return cacheRender.apply(this,args)};
     Binder.prototype.buildCovers=function(){binder=this;return buildCovers.call(this)};
     let auditCity,cityRoot,sun,shadowSun,probeCount=0;
     const sunKey=()=>sun.position.toArray().join(',');
@@ -81,6 +83,7 @@ const bundle=await build({
     room=await createRoom(document.querySelector('canvas'),{
       state,onLayout:()=>{},onTurn:({completed,direction})=>{if(completed)state={...state,spread:state.spread+direction};room.sync(state)},
       onError:(message,fatal)=>{if(fatal)throw new Error(message);console.warn(message)},reducedMotion:false,
+      graphicsQuality:${JSON.stringify(graphicsQuality)},
     });
     const startupMs=performance.now()-startup;
     const summary=values=>{
@@ -98,6 +101,7 @@ const bundle=await build({
       staleProbes:()=>samples.staleProbes,
       renderSizes:()=>samples.renderSizes,
       startupMs,
+      roomCache(enabled){roomCache.enabled=enabled;roomCache.hasFrame=false;room.setMotion(false)},
       sheetBatches(enabled){
         if(legacySheets){legacySheets.removeFromParent();legacySheets=null}
         room.sync(state);
@@ -136,8 +140,8 @@ const bundle=await build({
   return {page,errors,close:async()=>{await page.evaluate(()=>window.roomAudit.dispose());await page.close()}};
 }
 
-export async function auditRoomPerformance(browser,origin){
-  const {page,errors,close}=await createAuditPage(browser,origin);
+export async function auditRoomPerformance(browser,origin,{quality='auto',deviceScaleFactor=1}={}){
+  const {page,errors,close}=await createAuditPage(browser,origin,{deviceScaleFactor},quality);
   try{
   const results={startupMs:await page.evaluate(()=>window.roomAudit.startupMs)};
   for(const [name,view,running,weather='clear',look=false]of [
@@ -207,6 +211,17 @@ export async function checkPausedRendering(browser,origin){
     assert.equal(highlight.cityFrames,initial.cityFrames,'Pocket highlights must reuse the paused city color/depth');
     await page.evaluate(()=>window.roomAudit.room.highlight(null));
     await settle();
+    const beforeAdmire=await page.screenshot();
+    await page.evaluate(()=>window.roomAudit.room.admire(window.roomAudit.state().slots[9]));
+    await page.waitForTimeout(400);
+    const duringAdmire=await page.screenshot();
+    await page.evaluate(()=>window.roomAudit.room.stopAdmiring());await page.waitForTimeout(160);
+    const afterAdmire=await page.screenshot(),corner={left:1120,top:60,width:250,height:260};
+    const stableCorner=await sharp(beforeAdmire).extract(corner).removeAlpha().raw().toBuffer();
+    for(const image of [duringAdmire,afterAdmire]){
+      const cornerPixels=await sharp(image).extract(corner).removeAlpha().raw().toBuffer();
+      assert.deepEqual(cornerPixels,stableCorner,'Showing or dismissing a card must not change the lighting outside the card');
+    }
 
     const {id,url}=await page.evaluate(()=>window.roomAudit.unseen());
     let requested=false;
@@ -243,7 +258,9 @@ export async function checkPausedRendering(browser,origin){
     const resized=await settle();assert.ok(resized.cityFrames>afterLook.cityFrames);
     await page.evaluate(()=>window.roomAudit.room.setMotion(true));
     await page.waitForTimeout(250);
-    assert.ok((await counters()).cityFrames>resized.cityFrames+2);
+    const live=await counters();
+    assert.ok(live.cityFrames>resized.cityFrames+2);
+    assert.equal(live.roomCaptures,resized.roomCaptures,'The moving city and steam must reuse unchanged room shading');
     await page.evaluate(()=>window.roomAudit.room.setModalOccluded(true));
     const modalFrozen=await settle();await page.waitForTimeout(200);
     assert.equal((await counters()).renderedFrames,modalFrozen.renderedFrames,'An obscuring sorting dialog must not render the animated city behind it');
@@ -283,6 +300,28 @@ export async function checkPausedRendering(browser,origin){
   }finally{releaseImage?.();await close()}
 }
 
+export async function checkRoomCacheFidelity(browser,origin){
+  const {page,errors,close}=await createAuditPage(browser,origin,{},'detail');
+  try{
+    for(const [view,dx]of [['binder',0],['held',0],['room',-475],['city',0]]){
+      await page.evaluate(([view,dx])=>{window.roomAudit.configure(view,false);if(dx)window.roomAudit.room.dragLook(dx,20)},[view,dx]);
+      await page.waitForTimeout(1700);
+      await page.evaluate(()=>window.roomAudit.roomCache(false));await page.waitForTimeout(200);const direct=await page.screenshot();
+      await page.evaluate(()=>window.roomAudit.roomCache(true));await page.waitForTimeout(200);const cached=await page.screenshot();
+      const a=await sharp(direct).removeAlpha().raw().toBuffer(),b=await sharp(cached).removeAlpha().raw().toBuffer();
+      let total=0,large=0;
+      for(let i=0;i<a.length;i+=3){
+        const difference=Math.abs(a[i]-b[i])+Math.abs(a[i+1]-b[i+1])+Math.abs(a[i+2]-b[i+2]);
+        total+=difference;if(difference>90)large++;
+      }
+      assert.ok(total/a.length<3,`${view}: cached linear-light compositing must preserve the room's colors and card detail`);
+      assert.ok(large/(a.length/3)<.015,`${view}: caching must not hide furniture, windows, card faces or depth edges`);
+    }
+    assert.deepEqual(errors,[]);
+    console.log('PASS: cached room rendering preserves card detail, glazing and depth across table, held, gaming and balcony views');
+  }finally{await close()}
+}
+
 export async function checkParallelRoomLoading(browser,origin){
   const context=await browser.newContext({viewport:{width:1100,height:800}}),page=await context.newPage();
   let release;const blockedTexture=new Promise(resolve=>{release=resolve});
@@ -300,8 +339,8 @@ export async function checkParallelRoomLoading(browser,origin){
   }finally{release();await context.close()}
 }
 
-export async function checkRoomDepthAlignment(browser,origin,shots){
-  const {page,errors,close}=await createAuditPage(browser,origin,{viewport:{width:1440,height:830},deviceScaleFactor:2});
+export async function checkRoomDepthAlignment(browser,origin,shots,quality='detail'){
+  const {page,errors,close}=await createAuditPage(browser,origin,{viewport:{width:1440,height:830},deviceScaleFactor:2},quality);
   try{
     for(const [width,height,dy]of [[1440,830,-180],[1365,767,-320]]){
       await page.setViewportSize({width,height});
@@ -309,7 +348,8 @@ export async function checkRoomDepthAlignment(browser,origin,shots){
       await page.waitForTimeout(1600);
       await page.evaluate(()=>window.roomAudit.occluders(true));await page.waitForTimeout(160);
       const sizes=await page.evaluate(()=>window.roomAudit.renderSizes());
-      assert.deepEqual(sizes.target,sizes.canvas,'HDR color/depth must use the exact drawing-buffer size, including fractional DPR rounding');
+      if(quality==='detail')assert.deepEqual(sizes.target,sizes.canvas,'Full-detail HDR depth must use the exact drawing-buffer size');
+      else assert.ok(sizes.target[0]<=sizes.canvas[0]&&sizes.target[1]<=sizes.canvas[1],'Auto exterior resolution must be bounded independently of the sharp room');
       const enabled=await page.screenshot();
       await page.evaluate(()=>window.roomAudit.occluders(false));await page.waitForTimeout(160);
       const disabled=await page.screenshot();
@@ -317,7 +357,7 @@ export async function checkRoomDepthAlignment(browser,origin,shots){
       let changed=0;
       for(let i=0;i<a.length;i+=3)if(Math.abs(a[i]-b[i])+Math.abs(a[i+1]-b[i+1])+Math.abs(a[i+2]-b[i+2])>24)changed++;
       assert.ok(changed/(a.length/3)<.006,'The optimized table must not gain a horizontal dark band at Retina/odd viewport dimensions');
-      await sharp(enabled).resize(width).toFile(new URL(`table-depth-${width}x${height}.png`,shots).pathname);
+      await sharp(enabled).resize(width).toFile(new URL(`table-depth-${quality}-${width}x${height}.png`,shots).pathname);
     }
     assert.deepEqual(errors,[]);
     console.log('PASS: Retina/odd-size city depth matches the canvas exactly and preserves the table without a horizontal band');
@@ -326,6 +366,6 @@ export async function checkRoomDepthAlignment(browser,origin,shots){
 
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
   const browser=await chromium.launch({headless:true,args:['--use-angle=metal','--enable-gpu','--ignore-gpu-blocklist']});
-  try{console.log(JSON.stringify(await auditRoomPerformance(browser,origin),null,2))}
+  try{console.log(JSON.stringify(await auditRoomPerformance(browser,origin,{quality:process.env.BINDER_GRAPHICS||'auto',deviceScaleFactor:Number(process.env.BINDER_DPR||1)}),null,2))}
   finally{await browser.close()}
 }

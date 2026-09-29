@@ -29,6 +29,10 @@ npm run test:binder:browser  # Requires the development preview and Playwright C
 
 All runtime assets are local, except the user-activated supported YouTube TV embed. No backend or API key is required.
 
+Phone layouts include 16px form controls, keyboard-aware dialogs, a scrollable bag with compact search results, and full-size circular header controls. Pinch zoom is not disabled.
+
+For high-DPI or slower devices, use **Settings > Graphics and performance**. Balanced is the default: it reuses unchanged room shading and keeps a steady pixel budget during movement, card placement and rest. Full detail preserves the former resolution, while Smooth has a smaller fixed budget. All artwork and city populations remain intact. See [graphics modes and measured results](binder/README.md#graphics-and-performance).
+
 ## GitHub Pages deployment
 
 [The Pages workflow](.github/workflows/pages.yml) installs locked dependencies, builds the full site, runs unit tests and deploys `dist/binder/`. It runs automatically when `main` changes and can also be started from **Actions > Deploy Afterhours to GitHub Pages > Run workflow**.

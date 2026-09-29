@@ -52,6 +52,16 @@ If Chromium is not installed for Playwright yet, run `npx playwright install chr
 - **Pocket view** provides the same collection using standard keyboard-accessible buttons and a selected-card dropdown, including when WebGL is unavailable. Mobile layouts display one full page per row for larger, readable pocket targets.
 - The sound control enables optional, synthesized weather ambience and page sounds. Audio does not autoplay.
 
+### Phone and tablet collection controls
+
+- Editable fields and native selectors use **at least 16px text** on touch/narrow layouts, avoiding the small-input focus zoom used by iOS browsers. Browser pinch zoom remains enabled; the app does not set `user-scalable=no` or a maximum zoom.
+- Opening the bag on touch starts in browsing mode instead of focusing the search field and summoning the keyboard. Tap search when needed. **Done** or the keyboard's Search/Enter action dismisses editing without clearing the query or selected cards. Desktop opening and the **B** shortcut retain immediate search focus; **/** focuses search inside the bag.
+- Phone results use two larger card columns. **Filters and sorting** is collapsible, preserving its values when folded. While the keyboard occupies the visual viewport, results switch to compact thumbnail rows; the search/close controls and selected-card action remain reachable.
+- The mobile bag has one main scroll container with a pinned header and footer. It follows the **visual viewport**, including keyboard height and offset, without resizing the 3D canvas or counteracting intentional pinch zoom. Returning from inspection restores the originating card and scroll position. Finger scrolling does not tilt the inspection artwork.
+- The phone header reflows rather than squeezing five buttons into ovals. Room controls are circular **44px touch targets**, and the eye uses the same background, border and blur as its neighbors on desktop and mobile.
+
+`node binder/tests/mobile-ux-browser.mjs` checks Chromium and WebKit at phone/tablet widths, in landscape, with larger text, and with simulated keyboard viewport changes. Install the WebKit binary with `npx playwright install webkit` if that optional browser is missing. These tests verify the CSS zoom threshold and viewport handling; an actual iPhone remains the final check for native keyboard/browser-chrome behavior.
+
 The binder contains **20 double-sided sheets**, **40 nine-pocket faces**, and **360 distinct slots**. Its **21 open spreads** include the front and back inside covers. The sample starts at the first fully pocketed spread.
 
 There is one virtual copy of each checklist variant. Picking up reserves its saved location until placement; a faint ghost and an in-hand label distinguish a reserved binder pocket from an empty one. Reusing a reserved pocket safely relocates its held card's reservation to the newly freed location, with an explicit announcement. Returning a hand to the bag does not undo completed placements and never loses a card.
@@ -74,7 +84,21 @@ After **10 seconds without input**, the logo/top controls, collection introducti
 
 Open dialogs, active gestures, and keyboard-focused overlay controls keep the HUD visible. Loading does not consume the inactivity period, and storage-error warnings are never hidden by the fade. Reduced-motion users get the same timeout without an animated transition.
 
-The weather, room-lighting, sound, settings and eye controls share one aligned row with equal button dimensions and gaps. The eye remains available when the other controls fade or are manually hidden. Faded controls do not leave invisible pointer targets; keyboard focus still wakes them.
+### Graphics and performance
+
+**Settings > Graphics and performance** offers three rendering modes. The selection is stored separately from your collection:
+
+- **Balanced (default):** caps the room at 1.4 million pixels and the live city at 1.2 million pixels. These dimensions remain fixed while dragging, turning pages, placing cards and resting; the renderer no longer changes its sampling when an interaction stops. HUD/text controls remain at browser resolution. The former `auto` preference value is retained for compatibility.
+- **Full detail:** retains the original rendering density (device pixel ratio capped at 1.65) for both layers, including during movement. It benefits from the new cache but remains expensive on large/Retina screens.
+- **Smooth:** uses a fixed budget of up to 900,000 pixels for both room and city.
+
+All modes retain the full-size card image files, printing-aware foil, city geometry, vehicle/pedestrian counts, weather and multisample antialiasing. **No cards or city objects are removed.** Changing graphics modes never changes the saved collection. If a browser blocks preference storage, the selected mode still works for the current session and a warning is shown.
+
+Card print is kept separate from the room's cinematic tone mapping, so the already-colored image is not graded again. Its diffuse lighting is bounded rather than overexposing the print; foil adds a restrained, ink-masked reflection. The binder uses more matte pearl paper/leather, reduced sleeve clearcoat and a gentler room key. Admire uses the same room lights instead of adding a camera-attached lamp that could relight the background when a card appeared or disappeared.
+
+Shared finish maps retain each printing's foil/texture pattern without lowering local roughness into near-mirror values. GPU tests verify original color swatches, unchanged paused background after placement/Admire, restrained highlight peaks and visible angle-dependent foil.
+
+The weather, room-lighting, sound, settings and eye controls share one aligned row with equal circular dimensions, gaps and surface styling. On phones, view navigation and the clock/progress controls occupy separate rows to preserve touch-target sizes. The eye remains available when the other controls fade or are manually hidden. Faded controls do not leave invisible pointer targets; keyboard focus still wakes them.
 
 Look direction is fixed rather than stored as a preference. Any obsolete `afterhours.preferences.v1` entry is ignored; collection data and its storage schema are unchanged.
 
@@ -122,7 +146,7 @@ The view combines **real Project PLATEAU building meshes with an art-directed, f
 - Traffic and pedestrian routes are sampled once and interpolated during animation. Crowd instance transforms update at most 30 times per second; vehicles and crowds share instanced geometry rather than adding a draw call per person or car. Pausing the city freezes both populations without losing their positions.
 - Windows use warm, neutral, and cool light temperatures, with stronger color reserved for shop signs and architectural accents. Individual lights and blinds change on separate cycles, with fades of at least 1.4 seconds. Mipmapped occupancy and a dim subpixel limit prevent far windows from shimmering or turning entire towers into bright, flat slabs.
 - Night lighting preserves material albedo instead of darkening it a second time. Cool sky fill, warmer ground bounce, directional light and distance haze keep unlit walls and roofs legible. Glazing uses a local HDR probe of the actual city. A shared 250ms deadline limits probe and pending sun-shadow updates during lighting input; the final requested state still renders when motion is paused. Shadow refresh precedes probe capture, including interleaved time/cloud changes. This is a spatially approximate reflection, not ray tracing.
-- The main-view **Time of day** selector offers **Dawn / Day / Dusk / After dark**, without opening Settings. It stays synchronized with the matching Settings presets and the full 24-hour slider. A manually adjusted time appears as its exact clock value in the selector. The scene starts at **17:45** with dusk lighting. Sun/moon position, building illumination, sky color, and clouds respond together. Pointer interaction no longer leaves the oversized native focus rectangle; keyboard navigation retains a compact focus cue on the control wrapper.
+- The main-view **Time of day** selector offers **Dawn / Day / Dusk / After dark**, without opening Settings. It stays synchronized with the matching Settings presets and the full 24-hour slider. A manually adjusted time appears as its exact clock value in the selector. Fresh loads start at **22:00 / After dark**, with **Clear** weather. Sun/moon position, building illumination, sky color, and clouds respond together. Pointer interaction no longer leaves the oversized native focus rectangle; keyboard navigation retains a compact focus cue on the control wrapper.
 - **Cloud cover** and **Cloud speed** control procedural cloud formations independently of the weather. They are rendered in the sky shader, not a cloud photograph. **Window lights** and **Tower illumination** remain independently switchable; office lights, signs, street lights, and rooftop beacons vary gently with the motion clock.
 - Rain uses **3,000 windblown, GPU-animated streaks at varying 3D depths**, from immediately outside the balcony to the distant streets. It changes road roughness, adds a dense overcast layer, suppresses direct sun/moon light and increases atmospheric extinction. The manual cloud level is retained and restored when weather returns to Clear. A height-integrated atmospheric model attenuates light with path length, adds sun-facing scatter and leaves high building tops above denser ground haze. Time/weather/cloud controls are simulated, not a real Tokyo forecast.
 - A city-only **HDR light bloom** softens the strongest lights while preserving their geometry depth behind the room. Tokyo Tower retains distinct vermilion steel and warm-white painted bands, with restrained floodlight peaks, shaded structural faces and a softer halo through haze rather than a uniform yellow-white glow. Its size and the city's exposure/bloom settings are unchanged. Less pale scattering preserves depth without washing out luminous landmarks. Street-screen pixels use calibrated self-emission instead of also receiving the point light intended to illuminate the street, avoiding the double-lit hotspot while retaining ad colors and surrounding light spill. Highlight color preservation keeps bright neon from turning uniformly white. Wet asphalt uses scanned surface maps, patchy roughness, and camera-dependent reflected light calculated in the asphalt shader, so it cannot spill onto non-road geometry before bloom. These streaks approximate point-light reflections; they are not full-scene ray-traced mirror reflections.
@@ -166,6 +190,8 @@ The scene starts clear. The weather button cycles **Clear > Rain > Fog**. You ca
 - [city-neon.js](./src/city-neon.js): right-side signage, supported animated screens, colored light spill and cranes.
 - [room-extras.js](./src/room-extras.js), [room-tv.js](./src/room-tv.js): room additions, steam and spatially projected YouTube playback.
 - [room-nooks.js](./src/room-nooks.js): proportioned reading furniture, the split apartment shell, open door and gaming-room enclosure.
+- [room-render-cache.js](./src/room-render-cache.js): reusable room color/coverage/depth with live-city compositing and correct glazing depth.
+- [render-quality.js](./src/render-quality.js): explicit, steady Balanced, Full detail and Smooth pixel budgets.
 - [gaming-room.js](./src/gaming-room.js): computer/console fixtures, original display artwork, batched hardware and neon accents.
 - [room-plants.js](./src/room-plants.js): shared local CC0 plant loading, alpha-aware materials and scale/placement.
 - [fetch-plant-assets.mjs](./fetch-plant-assets.mjs): bounded, checksum-verified plant packaging with alpha-preserving leaf textures.
@@ -185,37 +211,44 @@ Use **Controls > Export layout** to back up or move your arrangement. Imports va
 
 ## Performance audit
 
-The performance changes preserve all **8,558 buildings, 576 moving cars, 72 parked cars and 512 pedestrians**, along with full-resolution rendering and antialiasing:
+The performance changes preserve all **8,558 buildings, 576 moving cars, 72 parked cars and 512 pedestrians**, full artwork and multisample antialiasing. Balanced/Smooth intentionally render fewer pixels as described above; Full detail retains the former high-resolution limit.
 
+The initial CPU-focused audit did not solve the dominant GPU bottleneck. At 1440x900 on a Retina display, the original renderer repeatedly shaded the entire PBR room at 2376x1485 pixels while also rendering and post-processing the city. Pass isolation showed that removing the interior draw alone changed a roughly 58ms average frame interval to 22ms. The following fixes target that work:
+
+- **Reuse room shading:** cache room color, coverage and surface depth when its camera, geometry, lighting and artwork are unchanged. The live city and coffee steam keep moving without re-shading every card, sleeve, table, plant and lamp. Page turns, camera motion, held-card changes, late textures and lighting correctly refresh it. Materials apply their own tone-mapping treatment exactly once before the cached display-linear composite, allowing printed artwork to retain its color. Glazing coverage/depth is preserved.
+- **Avoid a redundant HDR/MSAA writeback:** bloom is blended in the final city composite instead of being drawn back into the multisampled city target and resolved again. The bloom pyramid, light colors and tower halo are preserved.
+- **Separate city masks from room depth:** masked exterior pixels no longer impose a lower-resolution copy of a room surface's depth. The full-size cached room restores its own depth, preventing dark bands and incorrect occlusion when the two layers have different resolutions.
+- **Bound Retina work without visible settling:** Balanced and Smooth use steady pixel budgets. The first optimization briefly switched density after motion, which visibly changed highlights and window sampling; that behavior has been removed. The previous CPU optimizations below remain in place.
 - Car and crowd transforms write directly to their existing instance buffers. Only active buffer ranges are uploaded, rather than the unused maximum-capacity tail.
 - Traffic collision buckets use reusable numeric-keyed cells instead of rebuilding string keys/arrays each frame. The final audit compared old/new state over two complete signal cycles at 192, 576 and 768 vehicles: positions, speeds, braking and collision-check counts matched exactly. Default-density simulation CPU time fell about 28% in that isolated comparison.
 - Headlights use a bounded, stable nearest-16 selection rather than sorting all active cars. Static reflected-light positions are recalculated only after camera movement or source additions; unchanged reflection textures are not uploaded again. Animated advertisement colors still update immediately. The same nearest-32 selection is used for wet-street light sources.
 - The binder's physical sheet layers retain their geometry and shadows but render as two instanced stacks instead of separate sheet meshes. Their full bounds are computed before page counts change; image comparisons and all 21-spread/page-turn tests cover the conversion.
 - Static apartment/city transforms are prepared once; moving actors and lights still update normally.
-- A paused, unchanged room submits **no repeated WebGL draws**. Binder-only interactions can reuse the cached city color/depth. Camera, weather, lighting, resize, late card artwork and resumed motion invalidate the appropriate layers.
+- A paused, unchanged room submits **no repeated WebGL draws**. Binder-only interactions can reuse the cached city color/depth. Exterior-only controls do not invalidate room shading. Camera, daylight, interior lighting, resize and late card artwork invalidate the relevant room layer.
 - Non-preview dialogs suspend city advancement and redundant rendering while covered. Settings stays live so atmosphere changes can be previewed.
 - Time/cloud input updates inexpensive lighting immediately while environment captures and pending sun shadows share a 250ms refresh budget.
 - Interior views use a depth-only pass of existing large room surfaces to reject hidden city fragments. Its small positive depth bias avoids competition with the final shaded room surface. The outdoor balcony skips this pass, where profiling found no useful occlusion.
-- HDR color/depth targets use the renderer's exact drawing-buffer dimensions, including fractional device-pixel ratios. Independently rounding those sizes could differ by one pixel and create horizontal dark bands across the table; Retina/odd-viewport image comparisons now cover that case.
+- Cached room color/depth uses the renderer's exact drawing-buffer dimensions, including fractional device-pixel ratios. Full-detail city targets match that buffer; Balanced/Smooth use deliberately independent exterior dimensions. Retina/odd-viewport comparisons cover both paths.
 - Detailed indoor plants reuse two model/material sets rather than duplicating downloads or textures. Dense dirt meshes are omitted, and the obsolete tabletop texture set is no longer loaded. Plant geometry is more detailed than the former procedural leaves; draw-call reductions alone are not a promise of a higher frame rate.
 - Startup streetscape placement uses the shared footprint spatial index instead of repeatedly scanning the entire building list, with equivalent occupancy boundaries.
 - Room textures and plant models load concurrently, with explicit cleanup if a required branch fails. GPU texture uploads yield after a small time budget rather than imposing one timer per texture. A gated-network browser regression verifies that plant requests start while a room texture is still pending and that collection browsing remains usable.
 - City-manifest compression removes about **1.33 MB** from the initial transfer without removing metadata or buildings.
 
-Run `npm run audit:binder:performance` against the preview (`BINDER_URL` overrides its URL) to compare moving/paused city and binder views, rain, the gaming-room view, and interleaved prepass-disabled/enabled samples. It also compares stationary images to catch occlusion regressions.
+Run `npm run audit:binder:performance` against the preview (`BINDER_URL` overrides its URL) to compare moving/paused city and binder views, rain, the gaming-room view, and interleaved prepass-disabled/enabled samples. Set `BINDER_DPR=2` for Retina and `BINDER_GRAPHICS=detail` to test the unchanged high-resolution mode. The default is Balanced (`auto`). Image comparisons, cache-capture counters, and quality-switch tests check that improvements are not just rendering stale content.
 
-The original prototype's final local Chromium/Metal audit at 1440x900 measured the following before and after the gaming-room/performance pass. These are historical local measurements; rerun the audit to measure this deployment build:
+In an actual-app Chromium/Metal test on Apple M2 Pro at **1440x900, DPR 2**, using the initially published version and stable Balanced mode with the same pointer movement:
 
 | Measurement | Before | After |
 | --- | ---: | ---: |
-| City, median CPU submission | 5.3 ms | 5.0 ms |
-| Binder, median CPU submission | 7.4 ms | 6.3 ms |
-| Binder, WebGL draws per frame | 851 | 833 |
-| City, median animation-frame interval | 16.7 ms | 16.7 ms |
-| Binder, median animation-frame interval | 33.3 ms | 33.3 ms |
+| Binder, average animation-frame interval while still | 55.6 ms | 16.7 ms |
+| Binder, median animation-frame interval while still | 50.0 ms | 16.7 ms |
+| Camera drag, average animation-frame interval | 56.5 ms | 27.2 ms |
+| Camera drag, median animation-frame interval | 50.0 ms | 33.3 ms |
 | Unchanged paused scene, draws per frame | 0 | 0 |
 
-The final rainy-city and gaming-room views measured 4.9ms and 5.3ms median CPU submission respectively, both with 16.7ms median frame intervals on this machine. The additional screen/halo artwork raises texture count from 336 to 340; it adds no per-frame canvas uploads. The binder remains GPU-bound at these settings: **the CPU reduction is not an FPS claim**. The depth-prepass image comparison still changes fewer than 0.2% of stationary pixels beyond its comparison threshold. These are local observations, not a universal frame-rate guarantee. Further gains should target measured shading/overdraw or compatible geometry batching rather than reducing population, material quality or resolution. Browser timer-query values can include backend scheduling effects and are not interpreted alone as display FPS.
+At the tested size, Balanced keeps the canvas at 1496x935 during both movement and rest instead of alternating between low and high resolutions. A prior isolated check of Full detail alone improved the stationary average interval to about 18.8ms through caching and pass fusion without lowering its original resolution. Camera movement still requires fresh room shading, so Balanced/Smooth are recommended for interaction on slower hardware.
+
+These are measured local results, not a universal FPS guarantee. Input/layout cost, GPU, browser, battery/power mode and viewport still matter. Frame intervals are animation-frame measurements; GPU timer-query values are not treated as display FPS. The full city remains substantial, so Full detail can still be slow on large displays or integrated/mobile GPUs.
 
 ## Card data and assets
 

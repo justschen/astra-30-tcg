@@ -35,18 +35,19 @@ export class Binder {
     const fabric = fabricTexture('#e2dfd5');
     fabric.wrapS = fabric.wrapT = THREE.RepeatWrapping;
     fabric.repeat.set(3, 4);
-    this.paper = new THREE.MeshStandardMaterial({ color: 0xe8e7df, map: fabric, roughness: .93, bumpMap: fabric, bumpScale: .008 });
+    this.paper = new THREE.MeshStandardMaterial({ color: 0xcfd0c7, map: fabric, roughness: .98, bumpMap: fabric, bumpScale: .006 });
     this.leather = new THREE.MeshPhysicalMaterial({
-      color: 0xf4f1e9, map: assets['leather-color'], normalMap: assets['leather-normal'],
-      normalScale: new THREE.Vector2(.22, .22), roughnessMap: assets['leather-roughness'], roughness: .86, clearcoat: .06,
+      color: 0xe1e0d6, map: assets['leather-color'], normalMap: assets['leather-normal'],
+      normalScale: new THREE.Vector2(.18, .18), roughnessMap: assets['leather-roughness'], roughness: .92, clearcoat: .025,
+      specularIntensity:.3,envMapIntensity:.6,
     });
     this.gold = new THREE.MeshStandardMaterial({ color: 0xd8b873, metalness: .93, roughness: .36 });
     this.seam = new THREE.LineBasicMaterial({ color: 0x959b97, transparent: true, opacity: .3 });
     this.plasticNormal = plasticNormalTexture();
     this.clear = new THREE.MeshPhysicalMaterial({
-      color: 0xf5f9f8, transparent: true, opacity: .045, roughness: .25, metalness: .01,
-      clearcoat: .35, clearcoatRoughness: .28, normalMap: this.plasticNormal, normalScale: new THREE.Vector2(.12, .12),
-      depthWrite: false, envMapIntensity: .35, specularIntensity:.4,
+      color: 0xf5f9f8, transparent: true, opacity: .022, roughness: .48, metalness: .01,
+      clearcoat: .09, clearcoatRoughness: .65, normalMap: this.plasticNormal, normalScale: new THREE.Vector2(.07, .07),
+      depthWrite: false, envMapIntensity: .18, specularIntensity:.2,
     });
     this.shadowMat = new THREE.MeshBasicMaterial({ color: 0x657078, opacity: .12, transparent: true, depthWrite: false });
     this.hoverMaterial = new THREE.LineBasicMaterial({ color: 0xd8ba7c, transparent: true, opacity: .9 });
@@ -136,8 +137,8 @@ export class Binder {
     const pose = binderLiftPose(this.lift);
     this.group.position.set(...pose.position);
     this.group.rotation.x = pose.rotation;
-    this.clear.opacity = .045 - this.lift * .018;
-    this.clear.roughness = .25 + this.lift * .1;
+    this.clear.opacity = .022 - this.lift * .008;
+    this.clear.roughness = .48 + this.lift * .10;
     return true;
   }
 

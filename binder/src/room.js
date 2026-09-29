@@ -17,6 +17,8 @@ import { CardAdmiration } from './card-admiration.js';
 import { createInteriorShell, createRoomNooks, interiorWallMaterial } from './room-nooks.js';
 import { createHouseplants, loadRoomPlants } from './room-plants.js';
 import { CityBatch } from './city-materials.js';
+import { RoomRenderCache } from './room-render-cache.js';
+import { GRAPHICS_PRESETS, renderSizing } from './render-quality.js';
 
 const mat = (color, roughness = .7, metalness = 0) => new THREE.MeshStandardMaterial({ color, roughness, metalness });
 const luminous = color => new THREE.MeshBasicMaterial({ color, toneMapped: false });
@@ -62,6 +64,7 @@ function createApartment(scene, assets, plants) {
     color: 0xadc1c8, transparent: true, opacity: .026, roughness: .08, metalness: .2, clearcoat: 1, side: THREE.DoubleSide, depthWrite: false,
   }));
   glass.position.set(.98, 2.2, -7.04); scene.add(glass);
+  const glazing=[glass];
   box(scene, [16, .2, 2.5], [1, -1.66, -8.5], mat(0x444c51));
   for (let x = -6.7; x <= 8.8; x += 1.55) box(scene, [.035, 1.58, .04], [x, -.8, -9.38], blackMetal);
   beam(scene, [-6.8, .015, -9.38], [8.9, .015, -9.38], .032, blackMetal);
@@ -70,11 +73,13 @@ function createApartment(scene, assets, plants) {
     color: 0xa8c4ce, transparent: true, opacity: .055, roughness: .08, metalness: .2, side: THREE.DoubleSide, depthWrite: false,
   }));
   railingGlass.position.set(1.05, -.7, -9.4); scene.add(railingGlass);
+  glazing.push(railingGlass);
   for(const x of [-6.8,8.9]){
     for(const z of [-9.38,-8.33,-7.28])box(scene,[.04,1.58,.04],[x,-.8,z],blackMetal);
     for(const y of [.015,-.96])beam(scene,[x,y,-9.38],[x,y,-7.2],y>0?.032:.019,blackMetal);
     const side=new THREE.Mesh(new THREE.PlaneGeometry(2.18,1.35),railingGlass.material);
     side.rotation.y=Math.PI/2;side.position.set(x,-.7,-8.29);side.name='Balcony side glass railing';scene.add(side);
+    glazing.push(side);
   }
   const rugTexture = fabricTexture('#666a71');
   const rug = roundedBox(scene, [12.5, .025, 10], [0, -1.49, -.4], new THREE.MeshStandardMaterial({
@@ -147,7 +152,7 @@ function createApartment(scene, assets, plants) {
   const extras=createRoomExtras(scene,assets);
   const nooks=createRoomNooks(scene,assets,plaster);
   createHouseplants(scene,plants);
-  return { lampLight, floorPaper, decor, binderShadow,nooks,...extras };
+  return { lampLight, floorPaper, decor, binderShadow,nooks,glazing,...extras };
 }
 
 function createMug(scene) {
@@ -181,10 +186,11 @@ function createMug(scene) {
   scene.add(group);
 }
 
-export async function createRoom(canvas, { state, onError, onLayout, onTurn, onProgress, onCityWarning = onError, reducedMotion }) {
+export async function createRoom(canvas, { state, onError, onLayout, onTurn, onProgress, onCityWarning = onError, reducedMotion, graphicsQuality = 'auto' }) {
+  if(!Object.hasOwn(GRAPHICS_PRESETS,graphicsQuality))throw new RangeError('Unknown graphics setting.');
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'high-performance' });
-  let renderDirty=true,cityDirty=true,renderedFrames=0,cityFrames=0,modalOccluded=false;
-  const invalidate=(city=false)=>{renderDirty=true;cityDirty||=city;};
+  let renderDirty=true,cityDirty=true,roomDirty=true,renderedFrames=0,cityFrames=0,modalOccluded=false;
+  const invalidate=(city=false,interior=true)=>{renderDirty=true;cityDirty||=city;roomDirty||=interior;};
   onProgress?.('Preparing room materials and plants...');
   const [materialResult,plantResult] = await Promise.allSettled([loadRoomAssets(),loadRoomPlants(onError)]);
   if(materialResult.status==='rejected'||plantResult.status==='rejected'){
@@ -220,7 +226,7 @@ export async function createRoom(canvas, { state, onError, onLayout, onTurn, onP
   windowLight.position.set(1.2, 3.6, -6.7); windowLight.lookAt(0, .6, 2); scene.add(windowLight);
   const ceilingLight = new THREE.RectAreaLight(0xffead4, .9, 5, 3);
   ceilingLight.position.set(-.7, 6.7, 1.8); ceilingLight.lookAt(0, .5, .8); scene.add(ceilingLight);
-  const key = new THREE.SpotLight(0xffdcb8, 46, 24, .9, 1, 2);
+  const key = new THREE.SpotLight(0xffdcb8, 20, 24, .9, 1, 2);
   key.position.set(-2.1, 6.5, 3.9); key.target.position.set(0, .5, .8); key.castShadow = true;
   key.shadow.mapSize.set(2048, 2048); key.shadow.bias = -.00008; key.shadow.normalBias = .014; key.shadow.radius = 3;
   scene.add(key, key.target);
@@ -233,6 +239,7 @@ export async function createRoom(canvas, { state, onError, onLayout, onTurn, onP
     plants.dispose(); environment.dispose(); renderer.dispose(); throw error;
   }
   const cityLightPass = new CityLightPass(renderer,onError);
+  const roomCache = new RoomRenderCache(renderer);
   const atmosphere = new CityAtmosphere(cityScene, skyline, reducedMotion);
   renderer.shadowMap.needsUpdate = true;
   skyline.prepare(renderer);
@@ -252,7 +259,7 @@ export async function createRoom(canvas, { state, onError, onLayout, onTurn, onP
   onProgress?.('Opening your binder...');
   await yieldToBrowser();
   const textures = new CardTextures(onError,()=>invalidate());
-  const coffeeSteam=createCoffeeSteam(scene);
+  const steamScene=new THREE.Scene(),coffeeSteam=createCoffeeSteam(steamScene);
   let warmRoom = false;
   function updateWindowDaylight() {
     const day = skyline.uniforms.cityDaylight.value, sunset = skyline.uniforms.citySunset.value;
@@ -282,6 +289,7 @@ export async function createRoom(canvas, { state, onError, onLayout, onTurn, onP
   const desired = { yaw: 0, pitch: .36, fov: 49, position: new THREE.Vector3(0, 3.7, 6.1) };
   const actual = { yaw: desired.yaw, pitch: desired.pitch, fov: desired.fov, position: desired.position.clone() };
   let width = 1, height = 1;
+  let sizing=null;
   const corners = [new THREE.Vector3(-.322, 0, -.442), new THREE.Vector3(.322, 0, -.442), new THREE.Vector3(.322, 0, .442), new THREE.Vector3(-.322, 0, .442)];
   const screenVector = new THREE.Vector3();
   const drawingBufferSize = new THREE.Vector2();
@@ -324,12 +332,20 @@ export async function createRoom(canvas, { state, onError, onLayout, onTurn, onP
   }
   syncPiles();
 
+  function resizeRenderTargets(){
+    const next=renderSizing(graphicsQuality,width,height,window.devicePixelRatio||1);
+    if(sizing&&next.width===sizing.width&&next.height===sizing.height&&next.cityWidth===sizing.cityWidth&&next.cityHeight===sizing.cityHeight)return;
+    renderer.setPixelRatio(next.ratio);renderer.setSize(width,height,false);
+    renderer.getDrawingBufferSize(drawingBufferSize);
+    roomCache.setSize(drawingBufferSize.x,drawingBufferSize.y);
+    cityLightPass.setSize(next.cityWidth,next.cityHeight);
+    sizing=next;invalidate(true);
+  }
+
   function resize() {
     const rect = canvas.getBoundingClientRect();
     width = rect.width; height = rect.height;
-    renderer.setSize(width, height, false);
-    renderer.getDrawingBufferSize(drawingBufferSize);
-    cityLightPass.setSize(drawingBufferSize.x, drawingBufferSize.y);
+    resizeRenderTargets();
     camera.aspect = width / height;
     if (mode === 'binder') {
       desired.position.set(0, width < 768 ? 6.2 : 3.7, width < 768 ? 7.25 : 6.1);
@@ -371,7 +387,8 @@ export async function createRoom(canvas, { state, onError, onLayout, onTurn, onP
     if(performance.now()-uploadSliceStarted>=6){await yieldToBrowser();uploadSliceStarted=performance.now();}
   }
   onProgress?.('Finishing the lighting...');
-  await renderer.compileAsync(scene, camera);
+  await roomCache.prepare(renderer, scene, camera);
+  await renderer.compileAsync(steamScene,camera);
   await cityLightPass.prepare(renderer,cityScene,camera);
 
   function project(point) {
@@ -397,7 +414,8 @@ export async function createRoom(canvas, { state, onError, onLayout, onTurn, onP
     const delta = Math.min((now - lastTime) / 1000, .05); lastTime = now;
     const factor = reducedMotion ? 1 : 1 - Math.exp(-delta * 11);
     const distance = Math.abs(actual.yaw - desired.yaw) + Math.abs(actual.pitch - desired.pitch) + Math.abs(actual.fov - desired.fov) + actual.position.distanceTo(desired.position);
-    if (distance > .00005) {
+    const cameraMoving=distance>.00005;
+    if (cameraMoving) {
       actual.yaw = THREE.MathUtils.lerp(actual.yaw, desired.yaw, factor);
       actual.pitch = THREE.MathUtils.lerp(actual.pitch, desired.pitch, factor);
       actual.fov = THREE.MathUtils.lerp(actual.fov, desired.fov, factor);
@@ -438,11 +456,13 @@ export async function createRoom(canvas, { state, onError, onLayout, onTurn, onP
     cityLightPass.render(renderer,cityScene,camera,skyline.uniforms.cityNight.value,refreshCity,mode === 'city' ? null : cityOccluders);
     if(shadowDue)cityShadowsDirty = false;
     renderer.shadowMap.needsUpdate = roomShadowsDirty;
-    renderer.render(scene, camera);
+    roomCache.render(renderer,scene,camera,roomDirty||dirtyLayout||roomShadowsDirty,apartment.glazing);
+    renderer.shadowMap.needsUpdate = false;
+    renderer.render(steamScene,camera);
     television.update(camera,renderDirty||dirtyLayout||wasTurning);
     roomShadowsDirty = false;
     renderedFrames++;if(refreshCity||!cityLightPass.enabled)cityFrames++;
-    renderDirty=cityDirty=false;
+    renderDirty=cityDirty=roomDirty=false;
     if (dirtyLayout) updateLayout();
     frame = requestAnimationFrame(loop);
   }
@@ -467,17 +487,21 @@ export async function createRoom(canvas, { state, onError, onLayout, onTurn, onP
       binder.setHand(ids, activeHandId); syncPiles(); dirtyLayout = true;
       roomShadowsDirty = true;
     },
-    setWeather(weather) { atmosphere.setWeather(weather); cityShadowsDirty = true;invalidate(true); },
+    setWeather(weather) { atmosphere.setWeather(weather); cityShadowsDirty = true;invalidate(true,false); },
     setCityNight(value) { skyline.setNight(value); updateWindowDaylight();cityShadowsDirty = true;invalidate(true); },
     setCityTime(value) { skyline.setTime(value); updateWindowDaylight();cityShadowsDirty = true;invalidate(true); },
-    setCityClouds(value) { skyline.setClouds(value);invalidate(true); },
-    setCloudSpeed(value) { skyline.setCloudSpeed(value);invalidate(true); },
-    setTrafficDensity(value) { atmosphere.setTrafficDensity(value);invalidate(true); },
-    setCityWindows(value) { skyline.setWindows(value);invalidate(true); },
-    setCityTower(value) { skyline.setTower(value);invalidate(true); },
-    setMotion(running) { atmosphere.setMotion(running);invalidate(true); },
+    setCityClouds(value) { skyline.setClouds(value);invalidate(true,false); },
+    setCloudSpeed(value) { skyline.setCloudSpeed(value);invalidate(true,false); },
+    setTrafficDensity(value) { atmosphere.setTrafficDensity(value);invalidate(true,false); },
+    setCityWindows(value) { skyline.setWindows(value);invalidate(true,false); },
+    setCityTower(value) { skyline.setTower(value);invalidate(true,false); },
+    setMotion(running) { atmosphere.setMotion(running);invalidate(true,false); },
     setReducedMotion(value) { reducedMotion = value;invalidate(true); },
-    setModalOccluded(value) { if (modalOccluded !== value) { modalOccluded = value; invalidate(true); } },
+    setGraphicsQuality(value){
+      if(!Object.hasOwn(GRAPHICS_PRESETS,value))throw new RangeError('Unknown graphics setting.');
+      graphicsQuality=value;resizeRenderTargets();invalidate(true);
+    },
+    setModalOccluded(value) { if (modalOccluded !== value) { modalOccluded = value; invalidate(true,false); } },
     pick(x, y, dropping = false) {
       if (binder.turn) return null;
       const rect = canvas.getBoundingClientRect();
@@ -536,7 +560,7 @@ export async function createRoom(canvas, { state, onError, onLayout, onTurn, onP
     get turning() { return Boolean(binder.turn); },
     info() { return { drawCalls: renderer.info.render.calls, triangles: renderer.info.render.triangles, textures: renderer.info.memory.textures, view: mode,renderedFrames,cityFrames,
       cameraPosition:camera.position.toArray(),admiredCard:admiration.id,admiredRotation:admiration.card.quaternion.toArray(),
-      environmentCaptures:skyline.root.userData.environmentCaptures,modalOccluded }; },
+      environmentCaptures:skyline.root.userData.environmentCaptures,roomCaptures:roomCache.captures,graphicsQuality,renderSize:[sizing.width,sizing.height],cityRenderSize:[sizing.cityWidth,sizing.cityHeight],modalOccluded }; },
     dispose() {
       disposed = true; cancelAnimationFrame(frame); resizeObserver.disconnect(); canvas.removeEventListener('webglcontextlost', onContextLost);
       document.removeEventListener('visibilitychange',onVisibility);
@@ -545,7 +569,7 @@ export async function createRoom(canvas, { state, onError, onLayout, onTurn, onP
       depthOnly.dispose();
       cleanPiles(); binder.dispose(); textures.dispose();
       const materials = new Set(), geometries = new Set(), maps = new Set();
-      for (const layer of [scene, cityScene]) {
+      for (const layer of [scene, cityScene, steamScene]) {
         layer.traverse(object => {
           if (object.geometry) geometries.add(object.geometry);
           object.shadow?.dispose();
@@ -558,7 +582,7 @@ export async function createRoom(canvas, { state, onError, onLayout, onTurn, onP
       geometries.forEach(geometry => geometry.dispose()); materials.forEach(material => material.dispose());
       Object.values(assets).forEach(texture => maps.add(texture));
       maps.forEach(texture => { texture.dispose(); texture.image?.close?.(); });
-      skyline.dispose(); cityLightPass.dispose(); environment.dispose(); renderer.dispose();
+      skyline.dispose(); cityLightPass.dispose(); roomCache.dispose(); environment.dispose(); renderer.dispose();
     },
   };
 }

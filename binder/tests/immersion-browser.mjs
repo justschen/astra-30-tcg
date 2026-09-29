@@ -104,6 +104,12 @@ export async function checkImmersionUI(browser,origin,shots){
       assert.ok(controls.every(control=>control.top),`Header hit targets overlap at ${width}: ${JSON.stringify(controls)}`);
       const buttons=await page.locator('.room-actions button').evaluateAll(elements=>elements.map(element=>element.getBoundingClientRect().toJSON()));
       assert.ok(buttons.every(rect=>Math.abs(rect.y-buttons[0].y)<.5&&rect.width===buttons[0].width&&rect.height===buttons[0].height),`All five controls must share a baseline and dimensions at ${width}`);
+      assert.ok(buttons.every(rect=>rect.width===rect.height),`Header buttons must be circular rather than squeezed into ovals at ${width}`);
+      if(width<=767)assert.ok(buttons.every(rect=>rect.width>=44),`Phone header controls need full touch targets at ${width}`);
+      const surfaces=await page.locator('.room-actions button').evaluateAll(elements=>elements.map(element=>{
+        const style=getComputedStyle(element);return [style.backgroundColor,style.borderColor,style.backdropFilter].join('/');
+      }));
+      assert.equal(new Set(surfaces).size,1,`The eye must share the other controls' surface styling at ${width}`);
       const gaps=buttons.slice(1).map((rect,i)=>rect.x-buttons[i].right);
       assert.ok(Math.max(...gaps)-Math.min(...gaps)<.5,`The eye button must use the same spacing at ${width}`);
     }

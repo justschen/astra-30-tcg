@@ -20,10 +20,12 @@ export class CityLightPass {
     this.target.depthTexture.name = 'City geometry depth';
     this.bloom = new UnrealBloomPass(new THREE.Vector2(64,64), .34, .28, .82);
     this.bloom.compositeMaterial.uniforms.bloomFactors.value=[1,.72,.38,.14,.05];
+    this.bloomQuad = new FullScreenQuad(this.bloom.materialHighPassFilter);
     this.material = new THREE.ShaderMaterial({
       name: 'Tone-mapped city with original geometry depth',
       uniforms: {
         cityColor: { value: this.target.texture }, cityDepth: { value: this.target.depthTexture },
+        cityBloom: { value: this.bloom.renderTargetsHorizontal[0].texture },
         cityProjectionInverse: { value: new THREE.Matrix4() }, cityViewport: { value: new THREE.Vector2(1, 1) },
       },
       depthTest: true, depthWrite: true, depthFunc: THREE.AlwaysDepth, blending: THREE.NoBlending,
@@ -34,6 +36,7 @@ export class CityLightPass {
       fragmentShader: `
         uniform sampler2D cityColor;
         uniform sampler2D cityDepth;
+        uniform sampler2D cityBloom;
         uniform mat4 cityProjectionInverse;
         uniform vec2 cityViewport;
         varying vec2 cityUv;
@@ -58,8 +61,13 @@ export class CityLightPass {
           return 1.0 - clamp(occlusion / 12.0 * 1.7, 0.0, .34);
         }
         void main() {
-          vec3 hdr=texture2D(cityColor,cityUv).rgb;
+          vec4 surface=texture2D(cityColor,cityUv);
           float depth = texture2D(cityDepth,cityUv).r;
+          // The full-resolution room supplies its own depth, not the scaled exterior mask.
+          if(surface.a<.001 && depth<.999999) {
+            gl_FragColor=vec4(0.0,0.0,0.0,1.0);gl_FragDepth=1.0;return;
+          }
+          vec3 hdr=surface.rgb+texture2D(cityBloom,cityUv).rgb;
           vec3 position = cityViewPosition(cityUv,depth);
           vec3 dx = dFdx(position), dy = dFdy(position);
           vec3 normal = normalize(cross(dx,dy));
@@ -68,7 +76,7 @@ export class CityLightPass {
             hdr *= mix(contact,1.0,smoothstep(.6,2.0,max(max(hdr.r,hdr.g),hdr.b)));
           }
           gl_FragColor = vec4(hdr,1.0);
-          gl_FragDepth = depth;
+          gl_FragDepth = surface.a<.999 ? 1.0 : depth;
           #include <tonemapping_fragment>
           float sourcePeak=max(max(hdr.r,hdr.g),hdr.b);
           float mappedPeak=max(max(gl_FragColor.r,gl_FragColor.g),gl_FragColor.b);
@@ -98,7 +106,7 @@ export class CityLightPass {
       renderer.setRenderTarget(this.target);
       await renderer.compileAsync(scene,camera);
       const filters=new THREE.Scene();
-      for(const material of [this.bloom.materialHighPassFilter,...this.bloom.separableBlurMaterials,this.bloom.compositeMaterial,this.bloom.blendMaterial]){
+      for(const material of [this.bloom.materialHighPassFilter,...this.bloom.separableBlurMaterials,this.bloom.compositeMaterial]){
         filters.add(new THREE.Mesh(geometry,material));
       }
       await renderer.compileAsync(filters,view);
@@ -109,6 +117,29 @@ export class CityLightPass {
       renderer.setRenderTarget(previous);
       geometry.dispose();
     }
+  }
+
+  renderBloom(renderer) {
+    const bloom=this.bloom,quad=this.bloomQuad;
+    bloom.highPassUniforms.tDiffuse.value=this.target.texture;
+    bloom.highPassUniforms.luminosityThreshold.value=bloom.threshold;
+    quad.material=bloom.materialHighPassFilter;
+    renderer.setRenderTarget(bloom.renderTargetBright);quad.render(renderer);
+    let input=bloom.renderTargetBright;
+    for(let i=0;i<bloom.nMips;i++){
+      const material=bloom.separableBlurMaterials[i];quad.material=material;
+      material.uniforms.colorTexture.value=input.texture;
+      material.uniforms.direction.value=UnrealBloomPass.BlurDirectionX;
+      renderer.setRenderTarget(bloom.renderTargetsHorizontal[i]);quad.render(renderer);
+      material.uniforms.colorTexture.value=bloom.renderTargetsHorizontal[i].texture;
+      material.uniforms.direction.value=UnrealBloomPass.BlurDirectionY;
+      renderer.setRenderTarget(bloom.renderTargetsVertical[i]);quad.render(renderer);
+      input=bloom.renderTargetsVertical[i];
+    }
+    quad.material=bloom.compositeMaterial;
+    bloom.compositeMaterial.uniforms.bloomStrength.value=bloom.strength;
+    bloom.compositeMaterial.uniforms.bloomRadius.value=bloom.radius;
+    renderer.setRenderTarget(bloom.renderTargetsHorizontal[0]);quad.render(renderer);
   }
 
   render(renderer, scene, camera, night, refresh=true, occluders=null) {
@@ -122,6 +153,8 @@ export class CityLightPass {
     renderer.autoClear = false;
     if(refresh||!this.hasFrame){
       renderer.setRenderTarget(this.target);
+      const clearAlpha=renderer.getClearAlpha();
+      renderer.setClearAlpha(0);
       renderer.clear();
       if (occluders) {
         const shadows = renderer.shadowMap.needsUpdate;
@@ -129,8 +162,10 @@ export class CityLightPass {
         renderer.shadowMap.needsUpdate = shadows;
       }
       renderer.render(scene,camera);
+      renderer.setClearAlpha(clearAlpha);
       this.bloom.strength = .18 + night * .25;
-      this.bloom.render(renderer,null,this.target,0,false);
+      // Blend in the final composite instead of writing back into the MSAA target.
+      this.renderBloom(renderer);
       this.hasFrame=true;
     }
     renderer.setRenderTarget(null);
@@ -145,6 +180,7 @@ export class CityLightPass {
     this.target.dispose();
     this.target.depthTexture.dispose();
     this.bloom.dispose();
+    this.bloomQuad.dispose();
     this.bloom.materialHighPassFilter.dispose();
     this.material.dispose();
     this.quad.dispose();

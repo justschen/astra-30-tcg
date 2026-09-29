@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { CARDS, createCollection, locateCard, parseCollection } from '../src/collection.js';
 import { handLayout, returnHandToBag } from '../src/hand.js';
 import { binderLiftPose } from '../src/binder3d.js';
-import { formatCityTime, solarState, TIME_PRESETS } from '../src/day-cycle.js';
+import { DEFAULT_CITY_HOUR, formatCityTime, solarState, TIME_PRESETS } from '../src/day-cycle.js';
 import { CITY_OUTER_RADIUS, createCityLayout } from '../src/city-layout.js';
 
 test('Clear hand returns binder, stack and already-bag cards to the bag without losing cards', () => {
@@ -64,6 +64,8 @@ test('main-view time presets use the same valid clock values as the scene', () =
   assert.equal(new Set(TIME_PRESETS.map(preset=>preset.id)).size,TIME_PRESETS.length);
   for(const preset of TIME_PRESETS)assert.doesNotThrow(()=>solarState(preset.hour));
   assert.equal(solarState(TIME_PRESETS.find(preset=>preset.id==='after-dark').hour).night,1);
+  assert.equal(DEFAULT_CITY_HOUR,TIME_PRESETS.find(preset=>preset.id==='after-dark').hour);
+  assert.equal(formatCityTime(DEFAULT_CITY_HOUR),'22:00');
 });
 
 test('the outer city fills both side views and continues beyond the original footprint', () => {
